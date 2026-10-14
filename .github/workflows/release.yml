@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find ZIP
+        id: zip
+        run: |
+          f=$(find . -type f -name '*.zip' -not -path './.git/*' | head -n 1)
+          if [ -z "$f" ]; then
+            echo "ZIP не найден в репозитории"
+            exit 1
+          fi
+          echo "Нашёл: $f"
+          echo "path=$f" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          files: ${{ steps.zip.outputs.path }}
