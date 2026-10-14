@@ -1,0 +1,64 @@
+name: Miracle Code Android CI & Verification
+on:
+push:
+branches: [ "main", "develop" ]
+pull_request:
+branches: [ "main", "develop" ]
+workflow_dispatch:
+concurrency:
+group: ${{ github.workflow }}-${{ github.ref }}
+cancel-in-progress: true
+jobs:
+lint-and-test:
+name: Lint & Unit Tests (Clean Architecture + Engines)
+runs-on: ubuntu-latest
+timeout-minutes: 25
+steps:
+- name: Checkout Miracle Code Repository
+uses: actions/checkout@v4
+- name: Set up JDK 17 (Temurin)
+uses: actions/setup-java@v4
+with:
+java-version: '17'
+distribution: 'temurin'
+- name: Setup Gradle with Cache
+uses: gradle/actions/setup-gradle@v3
+with:
+gradle-version: '8.7'
+- name: Grant Execute Permission for Gradlew
+run: chmod +x gradlew
+- name: Run Android Lint
+run: ./gradlew lintDebug --stacktrace
+- name: Run Unit Tests (EffortEngine, OrchestrationEngine, ProviderManager)
+run: ./gradlew testDebugUnitTest --stacktrace
+- name: Upload Unit Test Reports if: always()
+uses: actions/upload-artifact@v4
+with:
+name: unit-test-reports
+path: app/build/reports/tests/testDebugUnitTest/
+build-apk:
+name: Assemble Debug & Release APKs
+needs: lint-and-test
+runs-on: ubuntu-latest
+timeout-minutes: 30
+steps:
+- name: Checkout Miracle Code Repository
+uses: actions/checkout@v4
+- name: Set up JDK 17 (Temurin)
+uses: actions/setup-java@v4
+with:
+java-version: '17'
+distribution: 'temurin'
+- name: Setup Gradle
+uses: gradle/actions/setup-gradle@v3
+with:
+gradle-version: '8.7'
+- name: Grant Execute Permission for Gradlew
+run: chmod +x gradlew
+- name: Build Debug APK
+run: ./gradlew assembleDebug --stacktrace
+- name: Upload Miracle Code Debug APK
+uses: actions/upload-artifact@v4
+with:
+name: MiracleCode-debug-apk
+path: app/build/outputs/apk/debug/*.apk
