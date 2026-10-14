@@ -1,4 +1,4 @@
-name: Release
+name: Build APK and Release
 
 on:
   push:
@@ -9,25 +9,65 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Find ZIP
-        id: zip
+      - name: Unzip project
         run: |
-          f=$(find . -type f -name '*.zip' -not -path './.git/*' | head -n 1)
-          if [ -z "$f" ]; then
+          set -e
+          zip=$(find . -maxdepth 2 -name '*.zip' -not -path './.git/*' | head -n 1)
+          if [ -z "$zip" ]; then
             echo "ZIP не найден в репозитории"
             exit 1
           fi
-          echo "Нашёл: $f"
-          echo "path=$f" >> "$GITHUB_OUTPUT"
+          echo "Распаковываю: $zip"
+          unzip -q "$zip" -d _project
+          settings=$(find _project -maxdepth 3 \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
+          if [ -z "$settings" ]; then
+            echo "В ZIP нет settings.gradle(.kts), это не Android-проект?"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$settings")" >> "$GITHUB_ENV"
 
-      - name: Create release
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: |
+          set -e
+          cd "$PROJECT_DIR"
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug --stacktrace
+          else
+            gradle assembleDebug --stacktrace
+          fi
+
+      - name: Collect APK
+        run: |
+          set -e
+          apk=$(find "$PROJECT_DIR" -path '*build/outputs/apk/debug/*.apk' | head -n 1)
+          if [ -z "$apk" ]; then
+            echo "APK не найден после сборки"
+            exit 1
+          fi
+          mkdir -p out
+          cp "$apk" out/MobileCode.apk
+
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
-          files: ${{ steps.zip.outputs.path }}
+          tag_name: build-${{ github.run_number }}
+          name: MobileCode build ${{ github.run_number }}
+          files: out/MobileCode.apk
