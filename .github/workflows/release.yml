@@ -43,6 +43,18 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Fix missing launcher icon
+        run: |
+          set -e
+          manifest="$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          res="$PROJECT_DIR/app/src/main/res"
+          if [ -f "$manifest" ] && ! find "$res" -path '*mipmap*' -name 'ic_launcher*' 2>/dev/null | grep -q .; then
+            echo "Иконок ic_launcher в проекте нет, убираю ссылки на них из манифеста"
+            sed -i -E 's/[[:space:]]*android:(icon|roundIcon)="@mipmap\/ic_launcher(_round)?"//g' "$manifest"
+          else
+            echo "Иконки на месте, ничего не трогаю"
+          fi
+
       - name: Build debug APK
         run: |
           set -e
