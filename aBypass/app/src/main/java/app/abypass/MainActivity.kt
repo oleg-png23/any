@@ -14,6 +14,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.lifecycleScope
 import app.abypass.browser.DownloadNames
 import app.abypass.browser.WebPromptHost
@@ -42,10 +43,7 @@ class MainActivity : ComponentActivity() {
         val response = model.pendingDownload
         model.pendingDownload = null
         if (uri != null && response != null) {
-            toast("Скачивание началось")
-            model.engine.download(response.uri, uri, lifecycleScope) { success ->
-                toast(if (success) "Файл сохранён" else "Не удалось скачать файл. Повторите на странице сервиса.")
-            }
+            model.download(response.uri, uri)
         }
     }
 
@@ -63,6 +61,7 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             ABypassTheme(model.settings) {
+                LaunchedEffect(model.notice) { model.notice?.let { toast(it); model.consumeNotice() } }
                 BackHandler(enabled = model.engine.state.serviceId != null) { model.engine.back() }
                 ABypassApp(
                     settings = model.settings,

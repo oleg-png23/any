@@ -25,6 +25,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 private object RuntimeHolder {
     var runtime: GeckoRuntime? = null
@@ -54,11 +57,17 @@ class BrowserEngine(
     private var extension: WebExtension? = null
     private var loadingExtension = false
     private var pending: ServiceDefinition? = null
+    private var clearingData = false
+    private var generation = 0L
+    private var pendingGeneration = 0L
+    private val needsReload = mutableSetOf<GeckoSession>()
     var promptDelegate: GeckoSession.PromptDelegate? = null
         set(value) { field = value; owners.keys.forEach { it.promptDelegate = value } }
     var onDownload: ((GeckoSession.WebResponseInfo) -> Unit)? = null
 
     fun open(service: ServiceDefinition) {
+        if (clearingData) return
+        pendingGeneration = generation
         if (loadingExtension) { pending = service; state = BrowserUiState(serviceId = service.id, loading = true); return }
         if (extension == null) {
             pending = service
@@ -69,14 +78,19 @@ class BrowserEngine(
             ).accept({ value ->
                 loadingExtension = false
                 extension = value
+                owners.forEach { (session, id) ->
+                    attachAdapter(session, id)
+                    change(session) { it.copy(extensionReady = true) }
+                    needsReload += session
+                }
                 val next = pending
                 pending = null
-                if (next != null) openSession(next)
+                if (next != null && !clearingData && pendingGeneration == generation) openSession(next)
             }, {
                 loadingExtension = false
                 val next = pending
                 pending = null
-                if (next != null) {
+                if (next != null && !clearingData && pendingGeneration == generation) {
                     onEvent(next.id, "Не удалось включить адаптер. Доступен обычный режим просмотра.", false)
                     openSession(next)
                 }
@@ -92,6 +106,7 @@ class BrowserEngine(
             it.loadUri(service.url)
         }
         activate(session)
+        if (needsReload.remove(session)) session.reload()
     }
 
     private fun createSession(id: String): GeckoSession {
@@ -113,12 +128,14 @@ class BrowserEngine(
                 return if (scheme in setOf("https", "about", "blob", "data")) null else GeckoResult.fromValue(AllowOrDeny.DENY)
             }
             override fun onLoadError(session: GeckoSession, uri: String?, error: WebRequestError): GeckoResult<String>? {
+                if (session !in owners) return null
                 change(session) { it.copy(loading = false, error = "Не удалось загрузить страницу. Проверьте подключение и повторите.") }
                 onRecord(id, CheckStatus.NETWORK_ERROR)
                 onEvent(id, "Ошибка загрузки страницы (код ${error.code}).", false)
                 return null
             }
-            override fun onNewSession(session: GeckoSession, uri: String): GeckoResult<GeckoSession> {
+            override fun onNewSession(session: GeckoSession, uri: String): GeckoResult<GeckoSession>? {
+                if (session !in owners || clearingData) return null
                 val child = createSession(id)
                 openers[child] = session
                 activate(child)
@@ -127,22 +144,38 @@ class BrowserEngine(
             }
         }
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
-            override fun onPageStart(session: GeckoSession, url: String) { change(session) { it.copy(url = url, loading = true, error = null, progress = 0) } }
+            override fun onPageStart(session: GeckoSession, url: String) {
+                if (session === activeSession && session.isOpen) session.setActive(true)
+                change(session) { it.copy(url = url, loading = true, error = null, progress = 0) }
+            }
             override fun onProgressChange(session: GeckoSession, progress: Int) { change(session) { it.copy(progress = progress.coerceIn(0, 100)) } }
             override fun onPageStop(session: GeckoSession, success: Boolean) {
+                val snapshot = snapshots[session] ?: return
                 change(session) { it.copy(loading = false, progress = 100) }
                 if (success) {
-                    val host = Uri.parse(snapshots[session]?.url).host.orEmpty()
-                    onRecord(id, if (host == "accounts.google.com") CheckStatus.SIGN_IN_REQUIRED else CheckStatus.PAGE_OPENED)
-                    onEvent(id, if (host == "accounts.google.com") "Открыта страница входа Google." else "Страница открылась. Работа функций ещё не проверена.", false)
+                    val host = Uri.parse(snapshot.url).host.orEmpty()
+                    if (host == "accounts.google.com") {
+                        onRecord(id, CheckStatus.SIGN_IN_REQUIRED)
+                        onEvent(id, "Открыта страница входа Google.", false)
+                    } else if (UrlRules.isServicePage(id, snapshot.url)) {
+                        onRecord(id, CheckStatus.PAGE_OPENED)
+                        onEvent(id, "Страница открылась. Работа функций ещё не проверена.", false)
+                    }
                 }
             }
         }
         session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) { change(session) { it.copy(title = title.orEmpty()) } }
             override fun onCloseRequest(session: GeckoSession) { closePopup(session) }
-            override fun onExternalResponse(session: GeckoSession, response: GeckoSession.WebResponseInfo) { onDownload?.invoke(response) }
+            override fun onExternalResponse(session: GeckoSession, response: GeckoSession.WebResponseInfo) {
+                if (session in owners && session === activeSession) onDownload?.invoke(response)
+            }
         }
+        attachAdapter(session, id)
+        return session
+    }
+
+    private fun attachAdapter(session: GeckoSession, id: String) {
         extension?.let { adapter ->
             session.webExtensionController.setMessageDelegate(adapter, object : WebExtension.MessageDelegate {
                 override fun onConnect(port: WebExtension.Port) {
@@ -152,25 +185,26 @@ class BrowserEngine(
                         port.disconnect()
                         return
                     }
-                    ports[port] = id
+                    val adapterId = if (uri.host == "flow.google.com") "flow" else "labs"
+                    ports[port] = adapterId
                     port.setDelegate(object : WebExtension.PortDelegate {
                         override fun onDisconnect(port: WebExtension.Port) { ports.remove(port) }
                         override fun onPortMessage(message: Any, port: WebExtension.Port) {
+                            if (session !in owners || ports[port] != adapterId) return
                             val data = message as? JSONObject ?: return
                             if (data.optString("type") != "diagnostic") return
                             when (data.optString("event")) {
-                                "ready" -> onEvent(id, "Адаптер готов к проверке региональной совместимости.", false)
-                                "patched" -> onEvent(id, "Применена региональная коррекция. Это не подтверждает работу сервиса.", true)
-                                "schema-mismatch" -> onEvent(id, "Формат ответа не распознан; ответ оставлен без изменений.", false)
-                                "region-page" -> onEvent(id, "Сервис показал региональное ограничение.", false)
+                                "ready" -> onEvent(adapterId, "Адаптер готов к проверке региональной совместимости.", false)
+                                "patched" -> onEvent(adapterId, "Применена региональная коррекция. Это не подтверждает работу сервиса.", true)
+                                "schema-mismatch" -> onEvent(adapterId, "Формат ответа не распознан; ответ оставлен без изменений.", false)
+                                "region-page" -> onEvent(adapterId, "Сервис показал региональное ограничение.", false)
                             }
                         }
                     })
-                    sendConfig(port, id)
+                    sendConfig(port, adapterId)
                 }
             }, "abypass")
         }
-        return session
     }
 
     private fun change(session: GeckoSession, update: (BrowserUiState) -> BrowserUiState) {
@@ -219,37 +253,50 @@ class BrowserEngine(
     }
 
     fun closeAll() {
+        generation++
         pending = null
         ports.keys.toList().forEach { it.disconnect() }
         ports.clear()
         owners.keys.toList().forEach { if (it.isOpen) it.close() }
-        sessions.clear(); owners.clear(); openers.clear(); snapshots.clear()
+        sessions.clear(); owners.clear(); openers.clear(); snapshots.clear(); needsReload.clear()
         activeSession = null
         state = BrowserUiState()
     }
 
     fun clearData(onComplete: (Boolean) -> Unit) {
+        if (clearingData) { onComplete(false); return }
+        clearingData = true
         closeAll()
         val runtime = RuntimeHolder.runtime
-        if (runtime == null) { onComplete(true); return }
-        runtime.storageController.clearData(StorageController.ClearFlags.ALL).accept({ onComplete(true) }, { onComplete(false) })
+        if (runtime == null) { clearingData = false; onComplete(true); return }
+        runtime.storageController.clearData(StorageController.ClearFlags.ALL).accept({ clearingData = false; onComplete(true) }, { clearingData = false; onComplete(false) })
     }
 
     fun download(url: String, destination: Uri, scope: CoroutineScope, done: (Boolean) -> Unit) {
         if (Uri.parse(url).scheme !in setOf("https", "blob")) { done(false); return }
         val request = WebRequest.Builder(url).build()
         GeckoWebExecutor(RuntimeHolder.get(context)).fetch(request).accept({ response ->
-            scope.launch {
+            if (!scope.isActive) { response.body?.close(); return@accept }
+            val job = scope.launch {
                 val success = withContext(Dispatchers.IO) {
                     runCatching {
                         response.body.use { body ->
                             check(response.statusCode in 200..299 && body != null)
-                            context.contentResolver.openOutputStream(destination, "wt")!!.use { body.copyTo(it) }
+                            context.contentResolver.openOutputStream(destination, "wt")!!.use { output ->
+                                val buffer = ByteArray(64 * 1024)
+                                while (true) {
+                                    coroutineContext.ensureActive()
+                                    val count = body.read(buffer)
+                                    if (count < 0) break
+                                    output.write(buffer, 0, count)
+                                }
+                            }
                         }
                     }.isSuccess
                 }
                 done(success)
             }
+            job.invokeOnCompletion { response.body?.close() }
         }, { done(false) })
     }
 }

@@ -25,6 +25,15 @@ class AppModel(application: Application) : AndroidViewModel(application) {
     val prompts = BrowserPrompts(application, viewModelScope)
     val engine = BrowserEngine(application, { settings }, ::record, ::event).also { it.promptDelegate = prompts }
     var pendingDownload: GeckoSession.WebResponseInfo? = null
+    var notice by mutableStateOf<String?>(null)
+        private set
+    fun consumeNotice() { notice = null }
+    fun download(url: String, target: Uri) {
+        notice = "Скачивание началось"
+        engine.download(url, target, viewModelScope) { success ->
+            notice = if (success) "Файл сохранён" else "Не удалось скачать файл. Повторите на странице сервиса."
+        }
+    }
 
     fun updateSettings(value: AppSettings) {
         settings = value

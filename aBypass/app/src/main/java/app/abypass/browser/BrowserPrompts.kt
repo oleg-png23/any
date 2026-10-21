@@ -26,13 +26,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSession.PromptDelegate as Prompts
 import java.io.File
 import java.util.UUID
-
-private typealias Prompts = GeckoSession.PromptDelegate
 
 data class WebPrompt(
     val title: String,
@@ -49,6 +51,9 @@ class BrowserPrompts(private val context: Context, private val scope: CoroutineS
         private set
     var launchPicker: ((Intent) -> Unit)? = null
     private var pendingFile: Pair<Prompts.FilePrompt, GeckoResult<Prompts.PromptResponse>>? = null
+    private var pickerActive = false
+    private var fileToken = 0L
+    private var fileJob: Job? = null
 
     private fun request(title: String, message: String, prompt: Prompts.BasePrompt, defaultText: String? = null,
                         choices: List<Prompts.ChoicePrompt.Choice> = emptyList(), multiple: Boolean = false,
@@ -92,10 +97,12 @@ class BrowserPrompts(private val context: Context, private val scope: CoroutineS
     }
 
     override fun onFilePrompt(session: GeckoSession, prompt: Prompts.FilePrompt): GeckoResult<Prompts.PromptResponse> {
-        dismissFile()
+        if (pendingFile != null || pickerActive) return GeckoResult.fromValue(prompt.dismiss())
         val result = GeckoResult<Prompts.PromptResponse>()
         if (launchPicker == null) return GeckoResult.fromValue(prompt.dismiss())
         pendingFile = prompt to result
+        fileToken++
+        pickerActive = true
         val intent = if (prompt.type == Prompts.FilePrompt.Type.FOLDER) Intent(Intent.ACTION_OPEN_DOCUMENT_TREE) else {
             Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
@@ -110,30 +117,54 @@ class BrowserPrompts(private val context: Context, private val scope: CoroutineS
     }
 
     fun receiveFiles(uris: List<Uri>) {
+        pickerActive = false
         val (prompt, result) = pendingFile ?: return
-        pendingFile = null
-        if (prompt.isComplete) return
-        if (uris.isEmpty()) { result.complete(prompt.dismiss()); return }
-        if (prompt.type == Prompts.FilePrompt.Type.FOLDER) { result.complete(prompt.confirm(context, uris.first())); return }
-        scope.launch {
+        if (prompt.isComplete) { pendingFile = null; return }
+        if (uris.isEmpty()) { pendingFile = null; result.complete(prompt.dismiss()); return }
+        if (prompt.type == Prompts.FilePrompt.Type.FOLDER) { pendingFile = null; result.complete(prompt.confirm(context, uris.first())); return }
+        val token = fileToken
+        val copied = mutableListOf<File>()
+        fileJob = scope.launch {
+          try {
             val files = withContext(Dispatchers.IO) {
                 runCatching {
                     val dir = File(context.cacheDir, "uploads").apply { mkdirs() }
                     uris.map { uri ->
+                        coroutineContext.ensureActive()
                         val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                             if (it.moveToFirst()) it.getString(0) else "upload"
                         } ?: "upload"
                         val file = File(dir, UUID.randomUUID().toString() + "-" + DownloadNames.clean(name))
-                        context.contentResolver.openInputStream(uri)!!.use { source -> file.outputStream().use { source.copyTo(it) } }
+                        copied += file
+                        context.contentResolver.openInputStream(uri)!!.use { source -> file.outputStream().use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            while (true) {
+                                coroutineContext.ensureActive()
+                                val count = source.read(buffer)
+                                if (count < 0) break
+                                output.write(buffer, 0, count)
+                            }
+                        } }
                         Uri.fromFile(file)
                     }
                 }.getOrNull()
             }
-            if (!prompt.isComplete) result.complete(if (files == null) prompt.dismiss() else prompt.confirm(context, files.toTypedArray()))
+            if (token == fileToken && pendingFile?.first === prompt) {
+                pendingFile = null
+                fileJob = null
+                if (!prompt.isComplete) result.complete(if (files == null) prompt.dismiss() else prompt.confirm(context, files.toTypedArray()))
+                if (files == null) copied.forEach { it.delete() }
+            }
+          } finally {
+            if (token != fileToken) copied.forEach { it.delete() }
+          }
         }
     }
 
     private fun dismissFile() {
+        fileToken++
+        fileJob?.cancel()
+        fileJob = null
         pendingFile?.let { (prompt, result) -> if (!prompt.isComplete) result.complete(prompt.dismiss()) }
         pendingFile = null
     }

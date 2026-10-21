@@ -29,7 +29,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`. Для x86_64 эмулятор
 ./gradlew -PabypassAbis=x86_64 connectedDebugAndroidTest
 ```
 
-Gradle 8.13 закреплён Wrapper с SHA-256 дистрибутива. AGP 8.13.2, Kotlin 2.3.10, Compose BOM 2026.09.00, GeckoView 158.0.20261021001945 закреплены в исходниках.
+Gradle 8.13 закреплён Wrapper с SHA-256 дистрибутива. AGP 8.13.2, Kotlin 2.3.10, Compose BOM 2025.10.01 (Material 3 1.4.0), GeckoView 158.0.20261021001945 закреплены в исходниках. Версия Compose выбрана совместимой с Android SDK 36.
 
 ## Проверка доступа на устройстве
 

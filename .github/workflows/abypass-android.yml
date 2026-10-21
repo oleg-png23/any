@@ -4,8 +4,6 @@ on:
   push:
     branches: [main, 'codex/abypass-*']
     paths: ['aBypass/**', '.github/workflows/abypass-android.yml']
-  pull_request:
-    paths: ['aBypass/**', '.github/workflows/abypass-android.yml']
   workflow_dispatch:
 
 permissions:
