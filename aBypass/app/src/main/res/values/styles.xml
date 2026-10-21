@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ABypass" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.ABypass.Base" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:colorAccent">#006B55</item>
-        <item name="android:windowSplashScreenBackground">#F4FBF5</item>
     </style>
+    <style name="Theme.ABypass" parent="Theme.ABypass.Base" />
 </resources>
