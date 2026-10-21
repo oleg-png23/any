@@ -15,15 +15,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.lifecycleScope
-import app.abypass.browser.DownloadNames
 import app.abypass.browser.WebPromptHost
 import app.abypass.data.AppModel
 import app.abypass.ui.ABypassApp
 import app.abypass.ui.ABypassTheme
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.mozilla.geckoview.GeckoView
 
 class MainActivity : ComponentActivity() {
@@ -39,12 +34,8 @@ class MainActivity : ComponentActivity() {
     private val exportPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri != null) model.writeDiagnostics(uri) { toast(if (it) "Диагностика сохранена" else "Не удалось сохранить файл") }
     }
-    private val downloadPicker = registerForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        val response = model.pendingDownload
-        model.pendingDownload = null
-        if (uri != null && response != null) {
-            model.download(response.uri, uri)
-        }
+    private val downloadPicker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        model.completeDownload(if (result.resultCode == RESULT_OK) result.data?.data else null)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,15 +44,22 @@ class MainActivity : ComponentActivity() {
         model.prompts.launchPicker = { intent ->
             try { filePicker.launch(intent) } catch (_: ActivityNotFoundException) { model.prompts.receiveFiles(emptyList()); toast("На устройстве нет приложения для выбора файлов") }
         }
-        model.engine.onDownload = { response ->
-            if (model.pendingDownload == null) {
-                model.pendingDownload = response
-                downloadPicker.launch(DownloadNames.clean(response.filename))
-            }
-        }
         setContent {
             ABypassTheme(model.settings) {
                 LaunchedEffect(model.notice) { model.notice?.let { toast(it); model.consumeNotice() } }
+                LaunchedEffect(model.saveDownload) {
+                    val download = model.saveDownload
+                    if (download != null && !model.downloadPickerActive) {
+                        model.downloadPickerActive = true
+                        try {
+                            downloadPicker.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = download.mimeType
+                                putExtra(Intent.EXTRA_TITLE, download.name)
+                            })
+                        } catch (_: ActivityNotFoundException) { model.completeDownload(null); toast("На устройстве нет приложения для сохранения файлов") }
+                    }
+                }
                 BackHandler(enabled = model.engine.state.serviceId != null) { model.engine.back() }
                 ABypassApp(
                     settings = model.settings,
@@ -111,5 +109,5 @@ class MainActivity : ComponentActivity() {
     private fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
     override fun onStart() { super.onStart(); model.engine.setVisible(true) }
     override fun onStop() { model.engine.setVisible(false); super.onStop() }
-    override fun onDestroy() { model.prompts.launchPicker = null; model.engine.onDownload = null; super.onDestroy() }
+    override fun onDestroy() { model.prompts.launchPicker = null; super.onDestroy() }
 }

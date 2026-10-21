@@ -19,15 +19,7 @@ import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.StorageController
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebRequestError
-import org.mozilla.geckoview.GeckoWebExecutor
-import org.mozilla.geckoview.WebRequest
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.ensureActive
-import kotlin.coroutines.coroutineContext
+import org.mozilla.geckoview.WebResponse
 
 private object RuntimeHolder {
     var runtime: GeckoRuntime? = null
@@ -63,7 +55,7 @@ class BrowserEngine(
     private val needsReload = mutableSetOf<GeckoSession>()
     var promptDelegate: GeckoSession.PromptDelegate? = null
         set(value) { field = value; owners.keys.forEach { it.promptDelegate = value } }
-    var onDownload: ((GeckoSession.WebResponseInfo) -> Unit)? = null
+    var onDownload: ((WebResponse) -> Unit)? = null
 
     fun open(service: ServiceDefinition) {
         if (clearingData) return
@@ -120,6 +112,11 @@ class BrowserEngine(
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLocationChange(session: GeckoSession, url: String?, perms: MutableList<GeckoSession.PermissionDelegate.ContentPermission>, hasUserGesture: Boolean) {
                 change(session) { it.copy(url = url.orEmpty()) }
+                ports.keys.filter { it.sender.session === session }.forEach { port ->
+                    val adapterId = UrlRules.adapterService(url.orEmpty()).orEmpty()
+                    ports[port] = adapterId
+                    sendConfig(port, adapterId)
+                }
             }
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) { change(session) { it.copy(canGoBack = canGoBack) } }
             override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) { change(session) { it.copy(canGoForward = canGoForward) } }
@@ -167,8 +164,10 @@ class BrowserEngine(
         session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) { change(session) { it.copy(title = title.orEmpty()) } }
             override fun onCloseRequest(session: GeckoSession) { closePopup(session) }
-            override fun onExternalResponse(session: GeckoSession, response: GeckoSession.WebResponseInfo) {
-                if (session in owners && session === activeSession) onDownload?.invoke(response)
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                val handler = onDownload
+                if (session in owners && session === activeSession && handler != null) handler(response)
+                else response.body?.close()
             }
         }
         attachAdapter(session, id)
@@ -185,19 +184,20 @@ class BrowserEngine(
                         port.disconnect()
                         return
                     }
-                    val adapterId = if (uri.host == "flow.google.com") "flow" else "labs"
+                    val adapterId = UrlRules.adapterService(sender.url).orEmpty()
                     ports[port] = adapterId
                     port.setDelegate(object : WebExtension.PortDelegate {
                         override fun onDisconnect(port: WebExtension.Port) { ports.remove(port) }
                         override fun onPortMessage(message: Any, port: WebExtension.Port) {
-                            if (session !in owners || ports[port] != adapterId) return
+                            if (session !in owners) return
+                            val currentAdapterId = ports[port]?.takeIf { it.isNotEmpty() } ?: return
                             val data = message as? JSONObject ?: return
                             if (data.optString("type") != "diagnostic") return
                             when (data.optString("event")) {
-                                "ready" -> onEvent(adapterId, "Адаптер готов к проверке региональной совместимости.", false)
-                                "patched" -> onEvent(adapterId, "Применена региональная коррекция. Это не подтверждает работу сервиса.", true)
-                                "schema-mismatch" -> onEvent(adapterId, "Формат ответа не распознан; ответ оставлен без изменений.", false)
-                                "region-page" -> onEvent(adapterId, "Сервис показал региональное ограничение.", false)
+                                "ready" -> onEvent(currentAdapterId, "Адаптер готов к проверке региональной совместимости.", false)
+                                "patched" -> onEvent(currentAdapterId, "Применена региональная коррекция. Это не подтверждает работу сервиса.", true)
+                                "schema-mismatch" -> onEvent(currentAdapterId, "Формат ответа не распознан; ответ оставлен без изменений.", false)
+                                "region-page" -> onEvent(currentAdapterId, "Сервис показал региональное ограничение.", false)
                             }
                         }
                     })
@@ -272,31 +272,4 @@ class BrowserEngine(
         runtime.storageController.clearData(StorageController.ClearFlags.ALL).accept({ clearingData = false; onComplete(true) }, { clearingData = false; onComplete(false) })
     }
 
-    fun download(url: String, destination: Uri, scope: CoroutineScope, done: (Boolean) -> Unit) {
-        if (Uri.parse(url).scheme !in setOf("https", "blob")) { done(false); return }
-        val request = WebRequest.Builder(url).build()
-        GeckoWebExecutor(RuntimeHolder.get(context)).fetch(request).accept({ response ->
-            if (!scope.isActive) { response.body?.close(); return@accept }
-            val job = scope.launch {
-                val success = withContext(Dispatchers.IO) {
-                    runCatching {
-                        response.body.use { body ->
-                            check(response.statusCode in 200..299 && body != null)
-                            context.contentResolver.openOutputStream(destination, "wt")!!.use { output ->
-                                val buffer = ByteArray(64 * 1024)
-                                while (true) {
-                                    coroutineContext.ensureActive()
-                                    val count = body.read(buffer)
-                                    if (count < 0) break
-                                    output.write(buffer, 0, count)
-                                }
-                            }
-                        }
-                    }.isSuccess
-                }
-                done(success)
-            }
-            job.invokeOnCompletion { response.body?.close() }
-        }, { done(false) })
-    }
 }
