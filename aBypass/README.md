@@ -16,7 +16,7 @@ Android-приложение с нативным интерфейсом Material
 
 ## Сборка
 
-Нужны JDK 17, Android SDK 36 и доступ к Google Maven, Maven Central и Mozilla Maven.
+Нужны JDK 17, Android SDK Platform 37.2, Build Tools 36.0.0 и доступ к Google Maven, Maven Central и Mozilla Maven.
 
 ```sh
 ./gradlew lintDebug testDebugUnitTest assembleDebug
@@ -29,7 +29,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`. Для x86_64 эмулятор
 ./gradlew -PabypassAbis=x86_64 connectedDebugAndroidTest
 ```
 
-Gradle 8.13 закреплён Wrapper с SHA-256 дистрибутива. AGP 8.13.2, Kotlin 2.3.10, Compose BOM 2025.10.01 (Material 3 1.4.0), GeckoView 158.0.20261021001945 закреплены в исходниках. Версия Compose выбрана совместимой с Android SDK 36.
+Gradle 9.6.0 закреплён Wrapper с SHA-256 дистрибутива. AGP 9.4.0 со встроенной поддержкой Kotlin 2.4.10, Compose BOM 2025.10.01 (Material 3 1.4.0) и GeckoView 158.0.20261021001945 закреплены в исходниках. SDK 37.2 нужен для сборки актуального браузерного движка; минимальная версия устройства остаётся Android 8.0.
 
 ## Проверка доступа на устройстве
 

@@ -32,7 +32,7 @@
     <string name="expand">Развернуть</string>
     <string name="collapse">Свернуть</string>
     <string name="compatibility_limits">Режим совместимости доступен для Flow и Google Labs. Он работает с известными клиентскими проверками региона. Серверные ограничения, требования к аккаунту, возрасту и подписке сохраняются. Для AI Studio и Gemini отдельный адаптер пока не реализован.</string>
-    <string name="diag_privacy">Журнал содержит события приложения и результаты загрузки. В него не должны попадать cookies, токены и содержимое ваших запросов.</string>
+    <string name="diag_privacy">В журнале сохраняются события приложения и результаты загрузки страниц. Cookies, токены и содержимое ваших запросов не записываются.</string>
     <string name="export_diagnostics">Экспорт журнала</string>
     <string name="recent_events">Последние события</string>
     <string name="no_events_title">Журнал пока пуст</string>

@@ -1,12 +1,11 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
     namespace = "app.abypass"
-    compileSdk = 36
+    compileSdk { version = release(37) { minorApiLevel = 2 } }
     defaultConfig {
         applicationId = "app.abypass"
         minSdk = 26
