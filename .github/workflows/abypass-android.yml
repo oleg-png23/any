@@ -80,7 +80,7 @@ jobs:
           disable-animations: true
           working-directory: aBypass
           script: |
-            ./gradlew -PabypassAbis=x86_64 connectedDebugAndroidTest --stacktrace
+            ./gradlew -PabypassAbis=x86_64 connectedDebugAndroidTest --stacktrace || { adb pull /sdcard/Android/data/app.abypass/files/screenshots ui-screenshots; exit 1; }
             adb pull /sdcard/Android/data/app.abypass/files/screenshots ui-screenshots
       - uses: actions/upload-artifact@v4
         if: always()

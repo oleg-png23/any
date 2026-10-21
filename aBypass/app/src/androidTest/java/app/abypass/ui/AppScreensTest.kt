@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -18,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -61,7 +64,7 @@ class AppScreensTest {
 
         compose.onNodeWithText(text(R.string.search_services)).performTextInput("AI Studio")
 
-        compose.onNodeWithText("AI Studio").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasText("AI Studio") and !hasSetTextAction()).performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Flow").assertDoesNotExist()
         compose.onNodeWithText("Google Labs").assertDoesNotExist()
         compose.onNodeWithText("Gemini", substring = false).assertDoesNotExist()
@@ -107,7 +110,8 @@ class AppScreensTest {
         render(onClearData = { clearCalls++ })
         navigateTo(R.string.nav_settings)
 
-        compose.onNodeWithText(text(R.string.clear_data_action)).performScrollTo().performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(text(R.string.clear_data_action)))
+        compose.onNodeWithText(text(R.string.clear_data_action)).performClick()
 
         compose.onNodeWithText(text(R.string.clear_data_title)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.clear_data_description)).assertIsDisplayed()
