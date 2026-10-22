@@ -108,6 +108,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -416,30 +418,27 @@ private fun ServiceCard(
         colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
         interactionSource = interaction,
     ) {
-        Box {
+        BoxWithConstraints {
+            val stacked = maxWidth < 320.dp || LocalDensity.current.fontScale > 1.2f
             ServiceBackdrop(service.id, style, Modifier.matchParentSize())
             Column(Modifier.padding(20.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    ServiceAvatar(service.id)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(service.name, style = MaterialTheme.typography.titleLarge)
-                        Text(service.description, style = MaterialTheme.typography.bodyMedium, color = style.ink.copy(alpha = 0.8f))
+                if (stacked) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        ServiceAvatar(service.id)
+                        ServiceFavorite(service.name, favorite, style, favoriteScale, onFavorite)
                     }
-                    IconToggleButton(checked = favorite, onCheckedChange = { onFavorite() }) {
-                        Icon(
-                            if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = stringResource(if (favorite) R.string.remove_favorite else R.string.add_favorite, service.name),
-                            tint = style.accent,
-                            modifier = Modifier.graphicsLayer { scaleX = favoriteScale; scaleY = favoriteScale },
-                        )
+                    ServiceHeading(service, style, Modifier.fillMaxWidth())
+                    StatusLabel(record.status, Modifier.fillMaxWidth().testTag("service-status-${service.id}"), style.ink.copy(alpha = 0.8f))
+                    ServiceOpenButton(style, onOpen)
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        ServiceAvatar(service.id)
+                        ServiceHeading(service, style, Modifier.weight(1f))
+                        ServiceFavorite(service.name, favorite, style, favoriteScale, onFavorite)
                     }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusLabel(record.status, Modifier.weight(1f), style.ink.copy(alpha = 0.8f))
-                    FilledTonalButton(onClick = onOpen, colors = ButtonDefaults.filledTonalButtonColors(containerColor = style.accent, contentColor = style.start)) {
-                        Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.open_service))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusLabel(record.status, Modifier.weight(1f).testTag("service-status-${service.id}"), style.ink.copy(alpha = 0.8f))
+                        ServiceOpenButton(style, onOpen)
                     }
                 }
                 if (service.hasAdapter && adapterEnabled) {
@@ -450,6 +449,35 @@ private fun ServiceCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ServiceHeading(service: ServiceDefinition, style: ServiceStyle, modifier: Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(service.name, style = MaterialTheme.typography.titleLarge)
+        Text(service.description, style = MaterialTheme.typography.bodyMedium, color = style.ink.copy(alpha = 0.8f))
+    }
+}
+
+@Composable
+private fun ServiceFavorite(name: String, favorite: Boolean, style: ServiceStyle, scale: Float, onFavorite: () -> Unit) {
+    IconToggleButton(checked = favorite, onCheckedChange = { onFavorite() }) {
+        Icon(
+            if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
+            contentDescription = stringResource(if (favorite) R.string.remove_favorite else R.string.add_favorite, name),
+            tint = style.accent,
+            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale },
+        )
+    }
+}
+
+@Composable
+private fun ServiceOpenButton(style: ServiceStyle, onOpen: () -> Unit) {
+    FilledTonalButton(onClick = onOpen, colors = ButtonDefaults.filledTonalButtonColors(containerColor = style.accent, contentColor = style.start)) {
+        Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(stringResource(R.string.open_service))
     }
 }
 

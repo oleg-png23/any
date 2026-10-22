@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertWidthIsAtLeast
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -170,6 +171,7 @@ class AppScreensTest {
             compose.onNode(hasScrollAction()).performScrollToNode(hasText(service.name))
             val avatar = compose.onNodeWithTag("service-avatar-${service.id}", useUnmergedTree = true)
             avatar.assertWidthIsEqualTo(52.dp).assertHeightIsEqualTo(52.dp)
+            compose.onNodeWithTag("service-status-${service.id}", useUnmergedTree = true).assertWidthIsAtLeast(160.dp)
             val bounds = avatar.fetchSemanticsNode().boundsInRoot
             val glyph = compose.onNodeWithTag("service-glyph-${service.id}", useUnmergedTree = true)
                 .fetchSemanticsNode().boundsInRoot
