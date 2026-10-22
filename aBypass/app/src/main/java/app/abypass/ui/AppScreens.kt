@@ -4,7 +4,21 @@ package app.abypass.ui
 
 import android.os.Build
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Android
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.CheckCircleOutline
@@ -47,15 +62,19 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Login
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
@@ -82,19 +101,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.abypass.R
+import app.abypass.BuildConfig
 import app.abypass.data.AppSettings
 import app.abypass.data.BrowserUiState
 import app.abypass.data.CheckStatus
@@ -134,6 +155,7 @@ fun ABypassApp(
 ) {
     var destinationName by rememberSaveable { mutableStateOf(Destination.SERVICES.name) }
     val destination = Destination.valueOf(destinationName)
+    val screenState = rememberSaveableStateHolder()
     var showClearData by remember { mutableStateOf(false) }
     var showClearDiagnostics by remember { mutableStateOf(false) }
 
@@ -145,21 +167,26 @@ fun ABypassApp(
             text = { Text(stringResource(R.string.clear_data_description)) },
             confirmButton = {
                 TextButton(onClick = { showClearData = false; onClearData() }) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.clear_data_confirm))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearData = false }) { Text(stringResource(R.string.cancel)) }
+                    TextButton(onClick = { showClearData = false }) { Icon(Icons.Outlined.Close, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.cancel)) }
             },
         )
     }
     if (showClearDiagnostics) {
         AlertDialog(
             onDismissRequest = { showClearDiagnostics = false },
+            icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
             title = { Text(stringResource(R.string.clear_diagnostics_title)) },
             text = { Text(stringResource(R.string.clear_diagnostics_description)) },
             confirmButton = {
                 TextButton(onClick = { showClearDiagnostics = false; onClearDiagnostics() }) {
+                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.clear))
                 }
             },
@@ -195,7 +222,7 @@ fun ABypassApp(
                             NavigationBarItem(
                                 selected = item == destination,
                                 onClick = { destinationName = item.name },
-                                icon = { Icon(item.icon, contentDescription = null) },
+                                icon = { NavigationIcon(item.icon, item == destination) },
                                 label = { Text(stringResource(item.title)) },
                             )
                         }
@@ -224,7 +251,7 @@ fun ABypassApp(
                             NavigationRailItem(
                                 selected = item == destination,
                                 onClick = { destinationName = item.name },
-                                icon = { Icon(item.icon, contentDescription = null) },
+                                icon = { NavigationIcon(item.icon, item == destination) },
                                 label = { Text(stringResource(item.title)) },
                                 modifier = Modifier.padding(vertical = 8.dp),
                             )
@@ -233,15 +260,26 @@ fun ABypassApp(
                 }
                 Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
                     val pageModifier = Modifier.widthIn(max = 980.dp).fillMaxSize()
-                    when (destination) {
-                        Destination.SERVICES -> ServicesScreen(settings, records, onSettingsChange, onOpenService, pageModifier)
-                        Destination.CHECKS -> ChecksScreen(
-                            records, events, onOpenService, onExportDiagnostics,
-                            { showClearDiagnostics = true }, pageModifier,
-                        )
-                        Destination.SETTINGS -> SettingsScreen(
-                            settings, onSettingsChange, { showClearData = true }, pageModifier,
-                        )
+                    AnimatedContent(
+                        targetState = destination,
+                        modifier = pageModifier,
+                        transitionSpec = {
+                            (fadeIn(tween(240)) + slideInVertically(tween(240)) { it / 24 }) togetherWith fadeOut(tween(120))
+                        },
+                        label = "screen-transition",
+                    ) { target ->
+                        screenState.SaveableStateProvider(target.name) {
+                            when (target) {
+                                Destination.SERVICES -> ServicesScreen(settings, records, onSettingsChange, onOpenService, Modifier.fillMaxSize())
+                                Destination.CHECKS -> ChecksScreen(
+                                    records, events, onOpenService, onExportDiagnostics,
+                                    { showClearDiagnostics = true }, Modifier.fillMaxSize(),
+                                )
+                                Destination.SETTINGS -> SettingsScreen(
+                                    settings, onSettingsChange, { showClearData = true }, Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -274,16 +312,21 @@ private fun ServicesScreen(
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.weight(1f))
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Text(stringResource(R.string.app_version_tag), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Android, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelMedium)
+                    }
                 }
             }
         }
         item {
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
-                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text(stringResource(R.string.services_hero_title), style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text(stringResource(R.string.services_hero_description), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.services_hero_title), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(stringResource(R.string.services_hero_description), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
         }
@@ -305,7 +348,7 @@ private fun ServicesScreen(
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !favoritesOnly, onClick = { favoritesOnly = false }, label = { Text(stringResource(R.string.all_services)) })
+                FilterChip(selected = !favoritesOnly, onClick = { favoritesOnly = false }, label = { Text(stringResource(R.string.all_services)) }, leadingIcon = { Icon(Icons.Outlined.Apps, contentDescription = null, modifier = Modifier.size(18.dp)) })
                 FilterChip(
                     selected = favoritesOnly,
                     onClick = { favoritesOnly = true },
@@ -325,6 +368,7 @@ private fun ServicesScreen(
                     onSettingsChange(settings.copy(favorites = favorites))
                 },
                 onOpen = { onOpenService(service) },
+                modifier = Modifier.animateItem(),
             )
         }
         if (filtered.isEmpty()) {
@@ -349,36 +393,51 @@ private fun ServiceCard(
     adapterEnabled: Boolean,
     onFavorite: () -> Unit,
     onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    val style = serviceStyle(service.id)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(if (pressed) 0.98f else 1f, spring(dampingRatio = 0.7f, stiffness = 500f), label = "card-press")
+    val favoriteScale by animateFloatAsState(if (favorite) 1.12f else 1f, spring(dampingRatio = 0.45f, stiffness = 600f), label = "favorite-toggle")
     Card(
         onClick = onOpen,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().graphicsLayer { scaleX = pressScale; scaleY = pressScale },
         shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
+        interactionSource = interaction,
     ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                ServiceAvatar(service)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(service.name, style = MaterialTheme.typography.titleLarge)
-                    Text(service.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            ServiceBackdrop(service.id, style, Modifier.matchParentSize())
+            Column(Modifier.padding(20.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ServiceAvatar(service.id)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(service.name, style = MaterialTheme.typography.titleLarge)
+                        Text(service.description, style = MaterialTheme.typography.bodyMedium, color = style.ink.copy(alpha = 0.8f))
+                    }
+                    IconToggleButton(checked = favorite, onCheckedChange = { onFavorite() }) {
+                        Icon(
+                            if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = stringResource(if (favorite) R.string.remove_favorite else R.string.add_favorite, service.name),
+                            tint = style.accent,
+                            modifier = Modifier.graphicsLayer { scaleX = favoriteScale; scaleY = favoriteScale },
+                        )
+                    }
                 }
-                IconToggleButton(checked = favorite, onCheckedChange = { onFavorite() }) {
-                    Icon(
-                        if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = stringResource(if (favorite) R.string.remove_favorite else R.string.add_favorite, service.name),
-                        tint = if (favorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusLabel(record.status, Modifier.weight(1f))
-                FilledTonalButton(onClick = onOpen) { Text(stringResource(R.string.open_service)) }
-            }
-            if (service.hasAdapter && adapterEnabled) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                    Text(stringResource(R.string.compatibility_enabled), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    StatusLabel(record.status, Modifier.weight(1f), style.ink.copy(alpha = 0.8f))
+                    FilledTonalButton(onClick = onOpen, colors = ButtonDefaults.filledTonalButtonColors(containerColor = style.accent, contentColor = style.start)) {
+                        Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.open_service))
+                    }
+                }
+                if (service.hasAdapter && adapterEnabled) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(16.dp), tint = style.accent)
+                        Text(stringResource(R.string.compatibility_enabled), style = MaterialTheme.typography.labelMedium, color = style.accent)
+                    }
                 }
             }
         }
@@ -386,16 +445,9 @@ private fun ServiceCard(
 }
 
 @Composable
-private fun ServiceAvatar(service: ServiceDefinition, modifier: Modifier = Modifier) {
-    val tertiary = service.id == "studio" || service.id == "gemini"
-    Surface(
-        modifier = modifier.size(56.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = if (tertiary) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = if (tertiary) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-    ) {
-        Box(contentAlignment = Alignment.Center) { Text(service.shortName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-    }
+private fun NavigationIcon(icon: ImageVector, selected: Boolean) {
+    val scale by animateFloatAsState(if (selected) 1.1f else 1f, spring(dampingRatio = 0.65f), label = "navigation-icon")
+    Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
 }
 
 @Composable
@@ -413,7 +465,7 @@ private fun ChecksScreen(
         contentPadding = PaddingValues(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { PageHeader(stringResource(R.string.checks_title), stringResource(R.string.checks_subtitle)) }
+        item { PageHeader(stringResource(R.string.checks_title), stringResource(R.string.checks_subtitle), Icons.Outlined.VerifiedUser) }
         item {
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.secondaryContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -424,21 +476,29 @@ private fun ChecksScreen(
         }
         items(Services.all, key = { "record-${it.id}" }) { service ->
             val record = records[service.id] ?: ServiceRecord()
+            val style = serviceStyle(service.id)
             Card(
                 onClick = { onOpenService(service) },
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
                 shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.animateItem(),
             ) {
-                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    ServiceAvatar(service)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(service.name, style = MaterialTheme.typography.titleMedium)
-                        StatusLabel(record.status)
-                        if (record.checkedAt > 0) {
-                            Text(formatTimestamp(record.checkedAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box {
+                    ServiceBackdrop(service.id, style, Modifier.matchParentSize())
+                    Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        ServiceAvatar(service.id)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(service.name, style = MaterialTheme.typography.titleMedium)
+                            StatusLabel(record.status, fallbackColor = style.ink.copy(alpha = 0.8f))
+                            if (record.checkedAt > 0) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Outlined.Schedule, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Text(formatTimestamp(record.checkedAt), style = MaterialTheme.typography.bodySmall, color = style.ink.copy(alpha = 0.8f))
+                                }
+                            }
                         }
+                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.open_named_service, service.name), tint = style.accent)
                     }
-                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.open_named_service, service.name), tint = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -453,19 +513,21 @@ private fun ChecksScreen(
                         trailingContent = { Icon(if (detailsExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = stringResource(if (detailsExpanded) R.string.collapse else R.string.expand)) },
                         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     )
-                    if (detailsExpanded) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Text(stringResource(R.string.compatibility_limits), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(R.string.diag_privacy), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilledTonalButton(onClick = onExportDiagnostics, enabled = events.isNotEmpty()) {
-                                    Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(stringResource(R.string.export_diagnostics))
-                                }
-                                IconButton(onClick = onClearDiagnostics, enabled = events.isNotEmpty()) {
-                                    Icon(Icons.Outlined.DeleteOutline, contentDescription = stringResource(R.string.clear_diagnostics_title))
+                    AnimatedVisibility(visible = detailsExpanded, enter = expandVertically(tween(220)) + fadeIn(tween(180)), exit = shrinkVertically(tween(180)) + fadeOut(tween(120))) {
+                        Column {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text(stringResource(R.string.compatibility_limits), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.diag_privacy), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilledTonalButton(onClick = onExportDiagnostics, enabled = events.isNotEmpty()) {
+                                        Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(R.string.export_diagnostics))
+                                    }
+                                    IconButton(onClick = onClearDiagnostics, enabled = events.isNotEmpty()) {
+                                        Icon(Icons.Outlined.DeleteOutline, contentDescription = stringResource(R.string.clear_diagnostics_title))
+                                    }
                                 }
                             }
                         }
@@ -474,7 +536,7 @@ private fun ChecksScreen(
             }
         }
         if (detailsExpanded) {
-            item { SectionLabel(stringResource(R.string.recent_events)) }
+            item { SectionLabel(stringResource(R.string.recent_events), Icons.Outlined.Schedule) }
             if (events.isEmpty()) {
                 item { EmptyState(Icons.Outlined.VerifiedUser, stringResource(R.string.no_events_title), stringResource(R.string.no_events_description)) }
             } else {
@@ -482,6 +544,7 @@ private fun ChecksScreen(
                     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(serviceIcon(event.serviceId), contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                                 Text(Services.find(event.serviceId)?.name ?: stringResource(R.string.app_name), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
                                 Text(formatTimestamp(event.time), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -506,8 +569,8 @@ private fun SettingsScreen(
         contentPadding = PaddingValues(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { PageHeader(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle)) }
-        item { SectionLabel(stringResource(R.string.appearance)) }
+        item { PageHeader(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle), Icons.Outlined.Settings) }
+        item { SectionLabel(stringResource(R.string.appearance), Icons.Outlined.Palette) }
         item {
             SettingsGroup {
                 ThemeOption(ThemeMode.SYSTEM, settings.theme, Icons.Outlined.BrightnessAuto, R.string.theme_system) { onSettingsChange(settings.copy(theme = it)) }
@@ -524,7 +587,7 @@ private fun SettingsScreen(
                 )
             }
         }
-        item { SectionLabel(stringResource(R.string.browsing)) }
+        item { SectionLabel(stringResource(R.string.browsing), Icons.Outlined.DesktopWindows) }
         item {
             SettingsGroup {
                 SwitchSetting(
@@ -536,7 +599,7 @@ private fun SettingsScreen(
                 )
             }
         }
-        item { SectionLabel(stringResource(R.string.compatibility)) }
+        item { SectionLabel(stringResource(R.string.compatibility), Icons.Outlined.VerifiedUser) }
         item {
             SettingsGroup {
                 Services.all.filter { it.hasAdapter }.forEachIndexed { index, service ->
@@ -544,7 +607,7 @@ private fun SettingsScreen(
                     SwitchSetting(
                         title = service.name,
                         description = stringResource(R.string.compatibility_setting_description),
-                        icon = Icons.Outlined.Bolt,
+                        icon = serviceIcon(service.id),
                         checked = service.id in settings.adapters,
                         onCheckedChange = { enabled ->
                             val adapters = if (enabled) settings.adapters + service.id else settings.adapters - service.id
@@ -557,7 +620,7 @@ private fun SettingsScreen(
         item {
             Text(stringResource(R.string.compatibility_setting_footer), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
         }
-        item { SectionLabel(stringResource(R.string.data_and_privacy)) }
+        item { SectionLabel(stringResource(R.string.data_and_privacy), Icons.Outlined.Lock) }
         item {
             SettingsGroup {
                 ListItem(
@@ -640,6 +703,7 @@ private fun BrowserScreen(
     browserContent: @Composable () -> Unit,
 ) {
     val service = Services.find(browser.serviceId)
+    val progress by animateFloatAsState(browser.progress.coerceIn(0, 100) / 100f, tween(220), label = "page-progress")
     var showPageInfo by remember(browser.serviceId) { mutableStateOf(false) }
     if (showPageInfo) {
         AlertDialog(
@@ -657,7 +721,7 @@ private fun BrowserScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showPageInfo = false }) { Text(stringResource(R.string.got_it)) } },
+            confirmButton = { TextButton(onClick = { showPageInfo = false }) { Icon(Icons.Outlined.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.got_it)) } },
         )
     }
     Scaffold(
@@ -666,7 +730,10 @@ private fun BrowserScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(service?.name ?: stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(serviceIcon(service?.id.orEmpty()), contentDescription = null, modifier = Modifier.size(18.dp))
+                                Text(service?.name ?: stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                             Text(domainOf(browser.url), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     },
@@ -674,7 +741,8 @@ private fun BrowserScreen(
                     actions = { IconButton(onClick = { showPageInfo = true }) { Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.page_information)) } },
                 )
                 if (browser.loading) {
-                    LinearProgressIndicator(progress = { browser.progress.coerceIn(0, 100) / 100f }, modifier = Modifier.fillMaxWidth())
+                    if (browser.progress <= 0) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    else LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                 }
             }
         },
@@ -702,7 +770,7 @@ private fun BrowserScreen(
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
                         Text(stringResource(R.string.browser_error), modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = onReload) { Text(stringResource(R.string.retry)) }
+                        TextButton(onClick = onReload) { Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.retry)) }
                     }
                 }
             }
@@ -712,16 +780,24 @@ private fun BrowserScreen(
 }
 
 @Composable
-private fun PageHeader(title: String, subtitle: String) {
+private fun PageHeader(title: String, subtitle: String, icon: ImageVector) {
     Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) {
+                Icon(icon, contentDescription = null, modifier = Modifier.padding(12.dp).size(28.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f).semantics { heading() })
+        }
         Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun SectionLabel(label: String) {
-    Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 8.dp).semantics { heading() })
+private fun SectionLabel(label: String, icon: ImageVector) {
+    Row(Modifier.padding(start = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { heading() })
+    }
 }
 
 @Composable
@@ -734,7 +810,7 @@ private fun EmptyState(icon: ImageVector, title: String, description: String) {
 }
 
 @Composable
-private fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier) {
+private fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier, fallbackColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     val (icon, label) = when (status) {
         CheckStatus.NOT_CHECKED -> Icons.Outlined.HelpOutline to R.string.status_not_checked
         CheckStatus.PAGE_OPENED -> Icons.Outlined.CheckCircleOutline to R.string.status_page_opened
@@ -744,7 +820,7 @@ private fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier) {
     val color = when (status) {
         CheckStatus.PAGE_OPENED -> MaterialTheme.colorScheme.primary
         CheckStatus.NETWORK_ERROR -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> fallbackColor
     }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = color)

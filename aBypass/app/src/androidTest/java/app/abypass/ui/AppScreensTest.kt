@@ -50,6 +50,12 @@ class AppScreensTest {
         render(onOpenService = { opened += it })
         compose.saveScreenshot("catalog")
 
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("AI Studio"))
+        compose.saveScreenshot("catalog-studio")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Gemini"))
+        compose.saveScreenshot("catalog-labs-gemini")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Flow"))
+
         compose.onNodeWithText("Flow").performScrollTo().performClick()
 
         compose.runOnIdle {
@@ -102,6 +108,10 @@ class AppScreensTest {
         compose.runOnIdle { assertEquals(ThemeMode.DARK, settings.value.theme) }
         compose.onNode(hasText(text(R.string.theme_dark)) and hasClickAction()).assertIsSelected()
         compose.saveScreenshot("settings-dark")
+        navigateTo(R.string.nav_services)
+        compose.saveScreenshot("catalog-dark")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Gemini"))
+        compose.saveScreenshot("catalog-dark-labs-gemini")
     }
 
     @Test

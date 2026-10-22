@@ -5,10 +5,13 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -115,7 +118,7 @@ fun ABypassTheme(settings: AppSettings, content: @Composable () -> Unit) {
         if (dark) DarkColors else LightColors
     }
     MaterialTheme(
-        colorScheme = colors,
+        colorScheme = animatedColors(colors),
         typography = AppTypography,
         shapes = Shapes(
             extraSmall = RoundedCornerShape(8.dp),
@@ -127,3 +130,28 @@ fun ABypassTheme(settings: AppSettings, content: @Composable () -> Unit) {
         content = content,
     )
 }
+
+/** Animate only native theme tokens; browser views retain their own session and lifetime. */
+@Composable
+private fun animatedColors(target: ColorScheme): ColorScheme {
+    return target.copy(
+        primary = motionColor(target.primary, "primary"), onPrimary = motionColor(target.onPrimary, "on-primary"),
+        primaryContainer = motionColor(target.primaryContainer, "primary-container"), onPrimaryContainer = motionColor(target.onPrimaryContainer, "on-primary-container"),
+        secondary = motionColor(target.secondary, "secondary"), onSecondary = motionColor(target.onSecondary, "on-secondary"),
+        secondaryContainer = motionColor(target.secondaryContainer, "secondary-container"), onSecondaryContainer = motionColor(target.onSecondaryContainer, "on-secondary-container"),
+        tertiaryContainer = motionColor(target.tertiaryContainer, "tertiary-container"), onTertiaryContainer = motionColor(target.onTertiaryContainer, "on-tertiary-container"),
+        background = motionColor(target.background, "background"), onBackground = motionColor(target.onBackground, "on-background"),
+        surface = motionColor(target.surface, "surface"), onSurface = motionColor(target.onSurface, "on-surface"),
+        surfaceContainerLowest = motionColor(target.surfaceContainerLowest, "surface-lowest"),
+        surfaceContainerLow = motionColor(target.surfaceContainerLow, "surface-low"),
+        surfaceContainer = motionColor(target.surfaceContainer, "surface-container"),
+        surfaceContainerHigh = motionColor(target.surfaceContainerHigh, "surface-high"),
+        surfaceContainerHighest = motionColor(target.surfaceContainerHighest, "surface-highest"),
+        surfaceVariant = motionColor(target.surfaceVariant, "surface-variant"),
+        onSurfaceVariant = motionColor(target.onSurfaceVariant, "on-surface-variant"),
+        outline = motionColor(target.outline, "outline"), outlineVariant = motionColor(target.outlineVariant, "outline-variant"),
+    )
+}
+
+@Composable
+private fun motionColor(color: Color, role: String): Color = animateColorAsState(color, tween(260), label = role).value
