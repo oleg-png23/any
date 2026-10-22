@@ -6,6 +6,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
@@ -190,6 +192,33 @@ class AppScreensTest {
         compose.runOnIdle { assertFalse(settings.value.dynamicColor) }
         navigateTo(R.string.nav_services)
         compose.saveScreenshot("catalog-google-palette")
+    }
+
+    @Test
+    fun wallpaperPaletteKeepsTextAndControlsReadableInBothThemes() {
+        val theme = mutableStateOf(ThemeMode.LIGHT)
+        var styles = emptyList<ServiceStyle>()
+        compose.setContent {
+            ABypassTheme(AppSettings(theme = theme.value, dynamicColor = true)) {
+                val current = Services.all.map { serviceStyle(it.id) }
+                SideEffect { styles = current }
+            }
+        }
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            compose.runOnIdle { theme.value = mode }
+            compose.waitForIdle()
+            compose.runOnIdle {
+                assertEquals(Services.all.size, styles.size)
+                fun contrast(first: androidx.compose.ui.graphics.Color, second: androidx.compose.ui.graphics.Color): Float {
+                    val a = first.luminance(); val b = second.luminance()
+                    return (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
+                }
+                for (style in styles) {
+                    assertTrue("Card text must retain readable contrast", contrast(style.ink, style.start) >= 4.5f)
+                    assertTrue("Button and avatar must retain readable contrast", contrast(style.accent, style.start) >= 4.5f)
+                }
+            }
+        }
     }
 
     private fun render(

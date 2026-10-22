@@ -428,7 +428,7 @@ private fun ServiceCard(
                         ServiceFavorite(service.name, favorite, style, favoriteScale, onFavorite)
                     }
                     ServiceHeading(service, style, Modifier.fillMaxWidth())
-                    StatusLabel(record.status, Modifier.fillMaxWidth().testTag("service-status-${service.id}"), style.ink.copy(alpha = 0.8f))
+                    StatusLabel(record.status, Modifier.fillMaxWidth().testTag("service-status-${service.id}"), style.ink)
                     ServiceOpenButton(style, onOpen)
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -437,7 +437,7 @@ private fun ServiceCard(
                         ServiceFavorite(service.name, favorite, style, favoriteScale, onFavorite)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusLabel(record.status, Modifier.weight(1f).testTag("service-status-${service.id}"), style.ink.copy(alpha = 0.8f))
+                        StatusLabel(record.status, Modifier.weight(1f).testTag("service-status-${service.id}"), style.ink)
                         ServiceOpenButton(style, onOpen)
                     }
                 }
@@ -456,7 +456,7 @@ private fun ServiceCard(
 private fun ServiceHeading(service: ServiceDefinition, style: ServiceStyle, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(service.name, style = MaterialTheme.typography.titleLarge)
-        Text(service.description, style = MaterialTheme.typography.bodyMedium, color = style.ink.copy(alpha = 0.8f))
+        Text(service.description, style = MaterialTheme.typography.bodyMedium, color = style.ink)
     }
 }
 
@@ -526,11 +526,11 @@ private fun ChecksScreen(
                         ServiceAvatar(service.id)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(service.name, style = MaterialTheme.typography.titleMedium)
-                            StatusLabel(record.status, fallbackColor = style.ink.copy(alpha = 0.8f))
+                            StatusLabel(record.status, fallbackColor = style.ink)
                             if (record.checkedAt > 0) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Outlined.Schedule, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Text(formatTimestamp(record.checkedAt), style = MaterialTheme.typography.bodySmall, color = style.ink.copy(alpha = 0.8f))
+                                    Text(formatTimestamp(record.checkedAt), style = MaterialTheme.typography.bodySmall, color = style.ink)
                                 }
                             }
                         }

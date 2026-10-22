@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Science
@@ -45,13 +44,12 @@ internal fun serviceIcon(id: String): ImageVector = when (id) {
 internal fun serviceStyle(id: String): ServiceStyle {
     val colors = MaterialTheme.colorScheme
     if (LocalWallpaperColors.current) {
-        val (container, ink, accent) = when (id) {
-            "studio" -> Triple(colors.tertiaryContainer, colors.onTertiaryContainer, colors.tertiary)
-            "labs" -> Triple(colors.secondaryContainer, colors.onSecondaryContainer, colors.secondary)
-            "gemini" -> Triple(lerp(colors.primaryContainer, colors.tertiaryContainer, 0.45f), colors.onPrimaryContainer, colors.primary)
-            else -> Triple(colors.primaryContainer, colors.onPrimaryContainer, colors.primary)
+        val (container, ink) = when (id) {
+            "studio" -> Pair(colors.tertiaryContainer, colors.onTertiaryContainer)
+            "labs" -> Pair(colors.secondaryContainer, colors.onSecondaryContainer)
+            else -> Pair(colors.primaryContainer, colors.onPrimaryContainer)
         }
-        return ServiceStyle(container, lerp(container, colors.surfaceContainerHigh, 0.22f), ink, accent)
+        return ServiceStyle(container, container, ink, ink)
     }
     val dark = colors.surface.luminance() < 0.35f
     return when (id) {
