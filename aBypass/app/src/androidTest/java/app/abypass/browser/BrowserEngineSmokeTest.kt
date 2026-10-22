@@ -8,6 +8,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.abypass.data.AppSettings
 import app.abypass.data.ServiceDefinition
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -19,6 +21,21 @@ import org.mozilla.geckoview.GeckoView
 @RunWith(AndroidJUnit4::class)
 class BrowserEngineSmokeTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun backDuringInitialOpenReturnsToTheCatalog() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        lateinit var engine: BrowserEngine
+        compose.runOnUiThread {
+            engine = BrowserEngine(context, { AppSettings() }, { _, _ -> }, { _, _, _ -> })
+            engine.open(ServiceDefinition("cancel-smoke", "Cancel smoke", "", "data:text/html,<html><body>Cancelled initial open</body></html>", false, "a"))
+            engine.back()
+            assertNull("Back must leave the browser even before a session exists", engine.state.serviceId)
+        }
+        try {
+            compose.waitForIdle()
+            compose.runOnIdle { assertNull("A late extension callback must not reopen a cancelled service", engine.state.serviceId) }
+        } finally { compose.runOnUiThread { engine.closeAll() } }
+    }
 
     @Test fun nativeEngineLoadsPageAndInstallsBundledAdapter() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -40,9 +57,17 @@ class BrowserEngineSmokeTest {
             compose.runOnIdle {
                 assertNotNull(engine.activeSession)
                 assertTrue("Bundled extension must install successfully", engine.state.extensionReady)
+                engine.stopLoading()
+                assertFalse("Stopping an idle page must not mark it cancelled", engine.state.loadStopped)
+                engine.reload()
+                engine.stopLoading()
+                assertTrue("An explicit cancellation must be represented immediately", engine.state.loadStopped)
+                assertFalse(engine.state.loading)
+                assertNull(engine.state.error)
                 engine.hide()
                 assertTrue(engine.state.serviceId == null)
             }
         } finally { compose.runOnUiThread { engine.closeAll() } }
     }
 }
+

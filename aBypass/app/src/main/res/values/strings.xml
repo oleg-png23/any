@@ -73,6 +73,8 @@
     <string name="close_service">Вернуться к сервисам</string>
     <string name="browser_back">Назад</string>
     <string name="browser_forward">Вперёд</string>
+    <string name="browser_stop_loading">Остановить загрузку</string>
+    <string name="browser_loading_stopped">Загрузка остановлена</string>
     <string name="browser_reload">Обновить страницу</string>
     <string name="browser_external">Открыть во внешнем браузере</string>
     <string name="browser_error">Не удалось загрузить страницу</string>

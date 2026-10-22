@@ -72,6 +72,7 @@ class MainActivity : ComponentActivity() {
                     onBack = model.engine::back,
                     onForward = model.engine::forward,
                     onReload = model.engine::reload,
+                    onStopLoading = model.engine::stopLoading,
                     onDesktopToggle = {
                         model.updateSettings(model.settings.copy(desktopMode = !model.settings.desktopMode))
                         model.engine.reload()
@@ -111,3 +112,4 @@ class MainActivity : ComponentActivity() {
     override fun onStop() { model.engine.setVisible(false); super.onStop() }
     override fun onDestroy() { model.prompts.launchPicker = null; super.onDestroy() }
 }
+

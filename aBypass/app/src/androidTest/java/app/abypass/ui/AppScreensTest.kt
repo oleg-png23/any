@@ -181,6 +181,34 @@ class AppScreensTest {
     }
 
     @Test
+    fun loadingCanBeStoppedRetriedAndLeftWithoutHistory() {
+        val browser = mutableStateOf(BrowserUiState(serviceId = "flow", url = "https://flow.google.com/", loading = true, progress = 25))
+        var stopped = 0
+        var reloaded = 0
+        var back = 0
+        render(browserState = browser, onStopLoading = {
+            stopped++
+            browser.value = browser.value.copy(loading = false, loadStopped = true)
+        }, onReload = {
+            reloaded++
+            browser.value = browser.value.copy(loading = true, loadStopped = false, progress = 0)
+        }, onBack = { back++ })
+        compose.onNodeWithContentDescription(text(R.string.browser_stop_loading)).assertIsDisplayed()
+        compose.saveScreenshot("browser-loading")
+        compose.onNodeWithContentDescription(text(R.string.browser_stop_loading)).performClick()
+        compose.onNodeWithText(text(R.string.browser_loading_stopped)).assertIsDisplayed()
+        compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(1, stopped) }
+        compose.saveScreenshot("browser-stopped")
+        compose.onNodeWithText(text(R.string.retry)).performClick()
+        compose.onNodeWithContentDescription(text(R.string.browser_stop_loading)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.browser_loading_stopped)).assertDoesNotExist()
+        compose.runOnIdle { assertEquals(1, reloaded) }
+        compose.onNodeWithContentDescription(text(R.string.browser_back)).performClick()
+        compose.runOnIdle { assertEquals(1, back) }
+    }
+
+    @Test
     fun pageSheetActionsReachTheirCallbacksAndDismissTheSheet() {
         var exported = 0
         var toggled = 0
@@ -281,6 +309,10 @@ class AppScreensTest {
         largeText: Boolean = false,
         records: Map<String, ServiceRecord> = emptyMap(),
         onExportDiagnostics: () -> Unit = {},
+        onStopLoading: () -> Unit = {},
+        onReload: () -> Unit = {},
+        onBack: () -> Unit = {},
+        browserState: MutableState<BrowserUiState>? = null,
         onDesktopToggle: () -> Unit = {},
         onExternalOpen: () -> Unit = {},
     ): MutableState<AppSettings> {
@@ -294,13 +326,14 @@ class AppScreensTest {
                     settings = settings.value,
                     records = records,
                     events = emptyList(),
-                    browser = browser,
+                    browser = browserState?.value ?: browser,
                     onSettingsChange = { settings.value = it },
                     onOpenService = onOpenService,
                     onCloseBrowser = onCloseBrowser,
-                    onBack = {},
+                    onBack = onBack,
                     onForward = {},
-                    onReload = {},
+                    onReload = onReload,
+                    onStopLoading = onStopLoading,
                     onDesktopToggle = onDesktopToggle,
                     onExternalOpen = onExternalOpen,
                     onClearData = onClearData,
@@ -337,7 +370,9 @@ internal fun ComposeContentTestRule.saveScreenshot(name: String): File {
     check(directory.isDirectory || directory.mkdirs())
     val file = File(directory, "$name.png")
     val roots = onAllNodes(isRoot())
-    val bitmap = roots[roots.fetchSemanticsNodes().lastIndex].captureToImage().asAndroidBitmap()
+    val bitmap = if (name == "browser-sheet") {
+        requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+    } else roots[roots.fetchSemanticsNodes().lastIndex].captureToImage().asAndroidBitmap()
     FileOutputStream(file).use { output ->
         check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
     }

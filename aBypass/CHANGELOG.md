@@ -1,5 +1,13 @@
 # Изменения
 
+## 0.1.7
+
+- Added native loading cancellation and explicit stopped/retry UI without discarding the page or browser profile.
+- Reload can resume a cancelled initial open even before the extension has finished installing. Manual stops do not produce network-error or successful-page records.
+- Fixed Back while waiting for the browser extension; cancelling the open also prevents late preparation from reopening it. Browser Back now works without page history.
+- Added UI/native cancellation regressions and a device screenshot of the page-actions sheet.
+
+
 ## 0.1.6
 
 - Added local vector backgrounds to catalog card headers, adaptive grid layout and a spring shape transition on press.

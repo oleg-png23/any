@@ -160,6 +160,7 @@ fun ABypassApp(
     onBack: () -> Unit,
     onForward: () -> Unit,
     onReload: () -> Unit,
+    onStopLoading: () -> Unit,
     onDesktopToggle: () -> Unit,
     onExternalOpen: () -> Unit,
     onClearData: () -> Unit,
@@ -218,6 +219,7 @@ fun ABypassApp(
             onBack = onBack,
             onForward = onForward,
             onReload = onReload,
+            onStopLoading = onStopLoading,
             onDesktopToggle = onDesktopToggle,
             onExternalOpen = onExternalOpen,
             onExportDiagnostics = onExportDiagnostics,
@@ -568,6 +570,7 @@ private fun BrowserScreen(
     onBack: () -> Unit,
     onForward: () -> Unit,
     onReload: () -> Unit,
+    onStopLoading: () -> Unit,
     onDesktopToggle: () -> Unit,
     onExternalOpen: () -> Unit,
     onExportDiagnostics: () -> Unit,
@@ -651,9 +654,14 @@ private fun BrowserScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(onClick = onBack, enabled = browser.canGoBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.browser_back)) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.browser_back)) }
                     IconButton(onClick = onForward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.browser_forward)) }
-                    IconButton(onClick = onReload) { Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.browser_reload)) }
+                    IconButton(onClick = if (browser.loading) onStopLoading else onReload) {
+                        AnimatedContent(targetState = browser.loading, label = "stop-reload") { loading ->
+                            Icon(if (loading) Icons.Outlined.Close else Icons.Outlined.Refresh,
+                                contentDescription = stringResource(if (loading) R.string.browser_stop_loading else R.string.browser_reload))
+                        }
+                    }
                     IconToggleButton(checked = desktopMode, onCheckedChange = { onDesktopToggle() }) {
                         Icon(Icons.Outlined.DesktopWindows, contentDescription = stringResource(R.string.desktop_mode), tint = if (desktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -671,6 +679,15 @@ private fun BrowserScreen(
                         IconButton(onClick = { showPageInfo = true }) {
                             Icon(Icons.Outlined.HelpOutline, stringResource(R.string.studio_access_details))
                         }
+                    }
+                }
+            }
+            AnimatedVisibility(browser.loadStopped) {
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.Info, null)
+                        Text(stringResource(R.string.browser_loading_stopped), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = onReload) { Text(stringResource(R.string.retry)) }
                     }
                 }
             }

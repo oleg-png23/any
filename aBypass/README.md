@@ -1,6 +1,6 @@
 # aBypass
 
-Version 0.1.6 refines the native interface using [Material 3](https://m3.material.io/get-started) and the official [Compose implementation](https://developer.android.com/develop/ui/compose/designsystems/material3): tonal container roles, 36/44 display typography, filled cards, segmented buttons, grouped settings and a floating browser toolbar. Wallpaper colors remain optional on Android 12+.
+Version 0.1.7 refines the native interface using [Material 3](https://m3.material.io/get-started) and the official [Compose implementation](https://developer.android.com/develop/ui/compose/designsystems/material3): tonal container roles, 36/44 display typography, filled cards, segmented buttons, grouped settings and a floating browser toolbar. Wallpaper colors remain optional on Android 12+.
 
 AI Studio has its own eligibility checks. A redirect to Google's available-regions documentation now has a distinct status and explanation; it is not recorded as successful access. This version does not claim to restore AI Studio access. To diagnose it, open Studio and export the app journal along with the visible error text. Flow's adapter is retained from 0.1.4.
 
@@ -11,7 +11,7 @@ Android-приложение с нативным интерфейсом Material
 
 Прямое скачивание APK: [GitHub Releases](https://github.com/oleg-png23/any/releases).
 
-Версия 0.1.6: **Android 8.0+ (API 26), ARM64**. APK собирается workflow **aBypass Android**, артефакт `aBypass-0.1.6-arm64`. Это подписанная отладочная сборка для испытаний. Для установки разрешите установку APK приложению, которым открываете файл.
+Версия 0.1.7: **Android 8.0+ (API 26), ARM64**. APK собирается workflow **aBypass Android**, артефакт `aBypass-0.1.7-arm64`. Это подписанная отладочная сборка для испытаний. Для установки разрешите установку APK приложению, которым открываете файл.
 
 ## Оформление и движение
 
@@ -22,6 +22,10 @@ Android-приложение с нативным интерфейсом Material
 Нативные библиотеки сжаты в APK, чтобы уменьшить скачивание. При установке Android распаковывает их, поэтому размер установленного приложения остаётся больше размера APK. Загрузка сайтов Google по-прежнему требует подключения к интернету.
 
 Отладочные APK разных запусков CI могут иметь разные подписи. Если Android не даёт обновить предыдущую версию этой сборкой, потребуется удалить прежнюю тестовую версию; это удалит её профиль сайтов.
+
+## При слабом интернете
+
+Пока страница загружается, центральная кнопка панели останавливает загрузку. Появляется состояние «Загрузка остановлена» с повторной попыткой; уже загруженная часть страницы сохраняется. Это не считается сетевой ошибкой или успешным доступом к сервису. Кнопка «Назад» работает и во время первоначальной подготовки браузера.
 
 ## Что делает режим совместимости
 

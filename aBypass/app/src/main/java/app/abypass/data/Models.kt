@@ -49,6 +49,7 @@ data class BrowserUiState(
     val error: String? = null,
     val extensionReady: Boolean = false,
     val accessRestricted: Boolean = false,
+    val loadStopped: Boolean = false,
 )
 
 

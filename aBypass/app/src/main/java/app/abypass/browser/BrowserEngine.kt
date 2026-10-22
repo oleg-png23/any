@@ -9,6 +9,7 @@ import app.abypass.data.AppSettings
 import app.abypass.data.BrowserUiState
 import app.abypass.data.CheckStatus
 import app.abypass.data.ServiceDefinition
+import app.abypass.data.Services
 import org.json.JSONObject
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
@@ -61,10 +62,10 @@ class BrowserEngine(
     fun open(service: ServiceDefinition) {
         if (clearingData) return
         pendingGeneration = generation
-        if (loadingExtension) { pending = service; state = BrowserUiState(serviceId = service.id, loading = true); return }
+        if (loadingExtension) { pending = service; showPreparing(service); return }
         if (extension == null) {
             pending = service
-            state = BrowserUiState(serviceId = service.id, loading = true)
+            showPreparing(service)
             loadingExtension = true
             RuntimeHolder.get(context).webExtensionController.ensureBuiltIn(
                 "resource://android/assets/compat/", "abypass-compat@app.abypass",
@@ -89,6 +90,12 @@ class BrowserEngine(
                 }
             })
         } else openSession(service)
+    }
+
+    private fun showPreparing(service: ServiceDefinition) {
+        activeSession?.setActive(false)
+        activeSession = null
+        state = BrowserUiState(serviceId = service.id, url = service.url, loading = true)
     }
 
     private fun openSession(service: ServiceDefinition) {
@@ -132,7 +139,7 @@ class BrowserEngine(
                 return if (scheme in setOf("https", "about", "blob", "data")) null else GeckoResult.fromValue(AllowOrDeny.DENY)
             }
             override fun onLoadError(session: GeckoSession, uri: String?, error: WebRequestError): GeckoResult<String>? {
-                if (session !in owners) return null
+                if (session !in owners || snapshots[session]?.loadStopped == true) return null
                 change(session) { it.copy(loading = false, error = "Не удалось загрузить страницу. Проверьте подключение и повторите.") }
                 onRecord(id, CheckStatus.NETWORK_ERROR)
                 onEvent(id, "Ошибка загрузки страницы (код ${error.code}).", false)
@@ -150,11 +157,12 @@ class BrowserEngine(
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
                 if (session === activeSession && session.isOpen) session.setActive(true)
-                change(session) { it.copy(url = url, loading = true, error = null, progress = 0) }
+                change(session) { it.copy(url = url, loading = true, error = null, progress = 0, loadStopped = false) }
             }
-            override fun onProgressChange(session: GeckoSession, progress: Int) { change(session) { it.copy(progress = progress.coerceIn(0, 100)) } }
+            override fun onProgressChange(session: GeckoSession, progress: Int) { change(session) { if (it.loadStopped) it else it.copy(progress = progress.coerceIn(0, 100)) } }
             override fun onPageStop(session: GeckoSession, success: Boolean) {
                 val snapshot = snapshots[session] ?: return
+                if (snapshot.loadStopped) { change(session) { it.copy(loading = false) }; return }
                 change(session) { it.copy(loading = false, progress = 100) }
                 if (success) {
                     val host = Uri.parse(snapshot.url).host.orEmpty()
@@ -257,7 +265,7 @@ class BrowserEngine(
     }
 
     fun back() {
-        val session = activeSession ?: return
+        val session = activeSession ?: run { hide(); return }
         when {
             state.canGoBack -> session.goBack()
             openers.containsKey(session) -> closePopup(session)
@@ -265,7 +273,26 @@ class BrowserEngine(
         }
     }
     fun forward() { activeSession?.goForward() }
-    fun reload() { activeSession?.reload() }
+    fun stopLoading() {
+        if (!state.loading) return
+        pending = null
+        val session = activeSession
+        if (session == null) {
+            state = state.copy(loading = false, loadStopped = true, error = null)
+            return
+        }
+        change(session) { it.copy(loading = false, loadStopped = true, error = null) }
+        session.stop()
+    }
+    fun reload() {
+        val session = activeSession
+        if (session == null) {
+            Services.find(state.serviceId)?.let(::open)
+            return
+        }
+        change(session) { it.copy(loading = true, loadStopped = false, error = null, progress = 0) }
+        session.reload()
+    }
     fun hide() { pending = null; activeSession?.setActive(false); activeSession = null; state = BrowserUiState() }
     fun setVisible(visible: Boolean) { activeSession?.setActive(visible) }
     fun updateSettings() {
