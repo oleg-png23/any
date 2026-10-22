@@ -16,6 +16,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -40,6 +42,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -85,6 +90,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -102,6 +109,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
@@ -129,6 +137,7 @@ import app.abypass.data.ServiceDefinition
 import app.abypass.data.ServiceRecord
 import app.abypass.data.Services
 import app.abypass.data.ThemeMode
+import kotlinx.coroutines.launch
 import java.net.URI
 import java.text.DateFormat
 import java.util.Date
@@ -211,6 +220,7 @@ fun ABypassApp(
             onReload = onReload,
             onDesktopToggle = onDesktopToggle,
             onExternalOpen = onExternalOpen,
+            onExportDiagnostics = onExportDiagnostics,
             browserContent = browserContent,
         )
         return
@@ -227,7 +237,7 @@ fun ABypassApp(
                             NavigationBarItem(
                                 selected = item == destination,
                                 onClick = { destinationName = item.name },
-                                icon = { NavigationIcon(item.icon, item == destination) },
+                                icon = { NavigationIcon(item, item == destination) },
                                 label = { Text(stringResource(item.title)) },
                             )
                         }
@@ -256,7 +266,7 @@ fun ABypassApp(
                             NavigationRailItem(
                                 selected = item == destination,
                                 onClick = { destinationName = item.name },
-                                icon = { NavigationIcon(item.icon, item == destination) },
+                                icon = { NavigationIcon(item, item == destination) },
                                 label = { Text(stringResource(item.title)) },
                                 modifier = Modifier.padding(vertical = 8.dp),
                             )
@@ -293,7 +303,12 @@ fun ABypassApp(
 }
 
 @Composable
-private fun NavigationIcon(icon: ImageVector, selected: Boolean) {
+private fun NavigationIcon(destination: Destination, selected: Boolean) {
+    val icon = if (selected) when (destination) {
+        Destination.SERVICES -> Icons.Filled.Apps
+        Destination.CHECKS -> Icons.Filled.VerifiedUser
+        Destination.SETTINGS -> Icons.Filled.Settings
+    } else destination.icon
     val scale by animateFloatAsState(if (selected) 1.1f else 1f, spring(dampingRatio = 0.65f), label = "navigation-icon")
     Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
 }
@@ -555,32 +570,57 @@ private fun BrowserScreen(
     onReload: () -> Unit,
     onDesktopToggle: () -> Unit,
     onExternalOpen: () -> Unit,
+    onExportDiagnostics: () -> Unit,
     browserContent: @Composable () -> Unit,
 ) {
     val service = Services.find(browser.serviceId)
     val progress by animateFloatAsState(browser.progress.coerceIn(0, 100) / 100f, tween(220), label = "page-progress")
     var showPageInfo by remember(browser.serviceId) { mutableStateOf(false) }
+    val pageSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    fun closeInfoThen(action: () -> Unit) {
+        scope.launch { pageSheet.hide(); showPageInfo = false; action() }
+    }
     if (showPageInfo) {
-        AlertDialog(
-            onDismissRequest = { showPageInfo = false },
-            icon = { Icon(Icons.Outlined.Info, contentDescription = null) },
-            title = { Text(service?.name ?: stringResource(R.string.page)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(browser.url, style = MaterialTheme.typography.bodyMedium)
-                    Text(stringResource(R.string.browser_page_info), style = MaterialTheme.typography.bodyMedium)
-                    if (service?.hasAdapter == true) {
-                        Text(stringResource(if (browser.extensionReady) R.string.browser_extension_ready else R.string.browser_extension_waiting), style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Text(stringResource(R.string.browser_no_adapter), style = MaterialTheme.typography.bodySmall)
+        ModalBottomSheet(onDismissRequest = { showPageInfo = false }, sheetState = pageSheet) {
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ServiceAvatar(service?.id.orEmpty())
+                    Column(Modifier.weight(1f)) {
+                        Text(service?.name ?: stringResource(R.string.page), style = MaterialTheme.typography.headlineSmall)
+                        Text(domainOf(browser.url), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    if (service?.id == "studio") {
-                        Text(stringResource(R.string.studio_access_help), style = MaterialTheme.typography.bodyMedium)
-                    }
+                    IconButton(onClick = { closeInfoThen {} }) { Icon(Icons.Outlined.Close, stringResource(R.string.got_it)) }
                 }
-            },
-            confirmButton = { TextButton(onClick = { showPageInfo = false }) { Icon(Icons.Outlined.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.got_it)) } },
-        )
+                Text(stringResource(R.string.browser_page_info), style = MaterialTheme.typography.bodyMedium)
+                if (service?.hasAdapter == true) {
+                    Text(stringResource(if (browser.extensionReady) R.string.browser_extension_ready else R.string.browser_extension_waiting), style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    Text(stringResource(R.string.browser_no_adapter), style = MaterialTheme.typography.bodyMedium)
+                }
+                if (service?.id == "studio") Text(stringResource(R.string.studio_access_help), style = MaterialTheme.typography.bodyMedium)
+                HorizontalDivider()
+                ListItem(
+                    modifier = Modifier.clickable { closeInfoThen(onExportDiagnostics) },
+                    headlineContent = { Text(stringResource(R.string.export_diagnostics)) },
+                    leadingContent = { Icon(Icons.Outlined.Download, null) },
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+                ListItem(
+                    modifier = Modifier.clickable { closeInfoThen(onDesktopToggle) },
+                    headlineContent = { Text(stringResource(R.string.desktop_mode)) },
+                    leadingContent = { Icon(Icons.Outlined.DesktopWindows, null) },
+                    trailingContent = { Switch(checked = desktopMode, onCheckedChange = null) },
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+                ListItem(
+                    modifier = Modifier.clickable { closeInfoThen(onExternalOpen) },
+                    headlineContent = { Text(stringResource(R.string.browser_external)) },
+                    leadingContent = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, null) },
+                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+            }
+        }
     }
     Scaffold(
         topBar = {
@@ -687,11 +727,8 @@ internal fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier, fal
         CheckStatus.NETWORK_ERROR -> Icons.Outlined.ErrorOutline to R.string.status_network_error
         CheckStatus.ACCESS_RESTRICTED -> Icons.Outlined.Lock to R.string.status_access_restricted
     }
-    val color = when (status) {
-        CheckStatus.PAGE_OPENED -> MaterialTheme.colorScheme.primary
-        CheckStatus.NETWORK_ERROR -> MaterialTheme.colorScheme.error
-        else -> fallbackColor
-    }
+    // Status text shares its surface's on-container role; unrelated theme accents may be unreadable here.
+    val color = fallbackColor
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = color)
         Text(stringResource(label), style = MaterialTheme.typography.labelMedium, color = color)

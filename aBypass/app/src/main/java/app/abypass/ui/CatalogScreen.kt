@@ -4,12 +4,16 @@ package app.abypass.ui
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -17,6 +21,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,12 +51,14 @@ internal fun ServicesScreen(
         (!favoritesOnly || it.id in settings.favorites) &&
             (it.name.contains(query, true) || it.description.contains(query, true))
     }
-    LazyColumn(
-        modifier,
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(if (LocalDensity.current.fontScale > 1.2f) 480.dp else 320.dp),
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(20.dp),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
                     Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
@@ -63,7 +70,7 @@ internal fun ServicesScreen(
                 Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.padding(top = 8.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(stringResource(R.string.services_hero_title), style = MaterialTheme.typography.displaySmall,
                     modifier = Modifier.semantics { heading() })
@@ -71,7 +78,7 @@ internal fun ServicesScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             TextField(
                 value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
                 placeholder = { Text(stringResource(R.string.search_services)) },
@@ -89,7 +96,7 @@ internal fun ServicesScreen(
                 ),
             )
         }
-        item {
+        item(span = { GridItemSpan(maxLineSpan) }) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 SegmentedButton(
                     selected = !favoritesOnly, onClick = { favoritesOnly = false },
@@ -114,14 +121,14 @@ internal fun ServicesScreen(
                 onOpen = { onOpenService(service) }, modifier = Modifier.animateItem(),
             )
         }
-        if (filtered.isEmpty()) item {
+        if (filtered.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Outlined.Search, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(stringResource(R.string.no_services_title), style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(if (favoritesOnly) R.string.no_favorites_description else R.string.no_services_description), style = MaterialTheme.typography.bodyMedium)
             }
         }
-        item { Text(stringResource(R.string.services_footer), Modifier.padding(horizontal = 8.dp, vertical = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.services_footer), Modifier.padding(horizontal = 8.dp, vertical = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -139,15 +146,18 @@ private fun CatalogCard(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.97f else 1f, spring(dampingRatio = 0.75f, stiffness = 450f), label = "service-press")
+    val corner by animateDpAsState(if (pressed) 20.dp else 28.dp, spring(dampingRatio = 0.8f), label = "service-shape")
     val favoriteScale by animateFloatAsState(if (favorite) 1.12f else 1f, spring(dampingRatio = 0.55f), label = "service-favorite")
     Card(
         onClick = onOpen, modifier = modifier.fillMaxWidth().graphicsLayer { scaleX = scale; scaleY = scale },
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = RoundedCornerShape(corner),
         colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
         interactionSource = interaction,
     ) {
         Column(Modifier.fillMaxWidth().padding(24.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.fillMaxWidth().clipToBounds()) {
+                ServiceBackdrop(service.id, style, Modifier.matchParentSize())
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 ServiceAvatar(service.id)
                 Spacer(Modifier.weight(1f))
                 IconToggleButton(checked = favorite, onCheckedChange = { onFavorite() }) {
@@ -155,6 +165,7 @@ private fun CatalogCard(
                         stringResource(if (favorite) R.string.remove_favorite else R.string.add_favorite, service.name),
                         Modifier.graphicsLayer { scaleX = favoriteScale; scaleY = favoriteScale }, tint = style.ink)
                 }
+            }
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(service.name, style = MaterialTheme.typography.headlineLarge)

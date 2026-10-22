@@ -31,6 +31,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
@@ -43,6 +45,8 @@ import app.abypass.data.BrowserUiState
 import app.abypass.data.ServiceDefinition
 import app.abypass.data.ThemeMode
 import app.abypass.data.Services
+import app.abypass.data.ServiceRecord
+import app.abypass.data.CheckStatus
 import java.io.File
 import java.io.FileOutputStream
 import org.junit.Assert.assertEquals
@@ -178,6 +182,43 @@ class AppScreensTest {
     }
 
     @Test
+    fun pageSheetActionsReachTheirCallbacksAndDismissTheSheet() {
+        var exported = 0
+        var toggled = 0
+        var external = 0
+        render(browser = BrowserUiState(serviceId = "flow", url = "https://flow.google.com/"),
+            onExportDiagnostics = { exported++ }, onDesktopToggle = { toggled++ }, onExternalOpen = { external++ })
+        compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
+        compose.onNodeWithText(text(R.string.export_diagnostics)).performScrollTo().assertIsDisplayed()
+        compose.saveScreenshot("browser-sheet")
+        compose.onNodeWithText(text(R.string.export_diagnostics)).performClick()
+        compose.runOnIdle { assertEquals(1, exported) }
+        compose.onNodeWithText(text(R.string.export_diagnostics)).assertDoesNotExist()
+        compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
+        compose.onNodeWithText(text(R.string.desktop_mode)).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, toggled) }
+        compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
+        compose.onNodeWithText(text(R.string.browser_external)).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, external) }
+    }
+
+    @Test
+    fun recordedStatusesRenderOnTheServiceSurfacesInBothThemes() {
+        render(records = mapOf("flow" to ServiceRecord(CheckStatus.PAGE_OPENED),
+            "studio" to ServiceRecord(CheckStatus.NETWORK_ERROR),
+            "labs" to ServiceRecord(CheckStatus.SIGN_IN_REQUIRED),
+            "gemini" to ServiceRecord(CheckStatus.ACCESS_RESTRICTED)))
+        compose.onNodeWithText("Flow").performScrollTo()
+        compose.saveScreenshot("catalog-status-light")
+        navigateTo(R.string.nav_settings)
+        compose.onNodeWithText(text(R.string.theme_dark)).performScrollTo().performClick()
+        navigateTo(R.string.nav_services)
+        compose.onNodeWithText("Flow").performScrollTo()
+        compose.saveScreenshot("catalog-status-dark")
+    }
+
+    @Test
     fun serviceAvatarsStaySquareAndCenteredOnNarrowScreensWithLargeText() {
         render(largeText = true)
         for (service in Services.all) {
@@ -239,6 +280,10 @@ class AppScreensTest {
         onClearData: () -> Unit = {},
         onCloseBrowser: () -> Unit = {},
         largeText: Boolean = false,
+        records: Map<String, ServiceRecord> = emptyMap(),
+        onExportDiagnostics: () -> Unit = {},
+        onDesktopToggle: () -> Unit = {},
+        onExternalOpen: () -> Unit = {},
     ): MutableState<AppSettings> {
         val settings = mutableStateOf(initialSettings)
         compose.setContent {
@@ -248,7 +293,7 @@ class AppScreensTest {
             ABypassTheme(settings.value) {
                 ABypassApp(
                     settings = settings.value,
-                    records = emptyMap(),
+                    records = records,
                     events = emptyList(),
                     browser = browser,
                     onSettingsChange = { settings.value = it },
@@ -257,10 +302,10 @@ class AppScreensTest {
                     onBack = {},
                     onForward = {},
                     onReload = {},
-                    onDesktopToggle = {},
-                    onExternalOpen = {},
+                    onDesktopToggle = onDesktopToggle,
+                    onExternalOpen = onExternalOpen,
                     onClearData = onClearData,
-                    onExportDiagnostics = {},
+                    onExportDiagnostics = onExportDiagnostics,
                     onClearDiagnostics = {},
                     browserContent = { Text(FAKE_BROWSER_CONTENT) },
                 )
@@ -292,7 +337,8 @@ internal fun ComposeContentTestRule.saveScreenshot(name: String): File {
     val directory = File(requireNotNull(context.getExternalFilesDir(null)), "screenshots")
     check(directory.isDirectory || directory.mkdirs())
     val file = File(directory, "$name.png")
-    val bitmap = onRoot().captureToImage().asAndroidBitmap()
+    val roots = onAllNodes(isRoot())
+    val bitmap = roots[roots.fetchSemanticsNodes().lastIndex].captureToImage().asAndroidBitmap()
     FileOutputStream(file).use { output ->
         check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
     }

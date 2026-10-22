@@ -1,5 +1,13 @@
 # Изменения
 
+## 0.1.6
+
+- Added local vector backgrounds to catalog card headers, adaptive grid layout and a spring shape transition on press.
+- Active navigation destinations use filled icons. All status text now uses the surface's own content color, fixing low contrast after successful opening in dark mode.
+- Replaced page-info dialogs with a scrollable Material 3 bottom sheet: export diagnostics, switch desktop mode and open externally without leaving the current service first.
+- AI Studio access work is deferred by request; Flow's compatibility adapter is unchanged.
+
+
 ## 0.1.5
 
 - Rebuilt the catalog around Material 3 tonal cards, display typography, segmented selection and a single prominent service action.

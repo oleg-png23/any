@@ -1,6 +1,6 @@
 # aBypass
 
-Version 0.1.5 redesigns the native interface using [Material 3](https://m3.material.io/get-started) and the official [Compose implementation](https://developer.android.com/develop/ui/compose/designsystems/material3): tonal container roles, 36/44 display typography, filled cards, segmented buttons, grouped settings and a floating browser toolbar. Wallpaper colors remain optional on Android 12+.
+Version 0.1.6 refines the native interface using [Material 3](https://m3.material.io/get-started) and the official [Compose implementation](https://developer.android.com/develop/ui/compose/designsystems/material3): tonal container roles, 36/44 display typography, filled cards, segmented buttons, grouped settings and a floating browser toolbar. Wallpaper colors remain optional on Android 12+.
 
 AI Studio has its own eligibility checks. A redirect to Google's available-regions documentation now has a distinct status and explanation; it is not recorded as successful access. This version does not claim to restore AI Studio access. To diagnose it, open Studio and export the app journal along with the visible error text. Flow's adapter is retained from 0.1.4.
 
@@ -11,13 +11,13 @@ Android-приложение с нативным интерфейсом Material
 
 Прямое скачивание APK: [GitHub Releases](https://github.com/oleg-png23/any/releases).
 
-Версия 0.1.5: **Android 8.0+ (API 26), ARM64**. APK собирается workflow **aBypass Android**, артефакт `aBypass-0.1.5-arm64`. Это подписанная отладочная сборка для испытаний. Для установки разрешите установку APK приложению, которым открываете файл.
+Версия 0.1.6: **Android 8.0+ (API 26), ARM64**. APK собирается workflow **aBypass Android**, артефакт `aBypass-0.1.6-arm64`. Это подписанная отладочная сборка для испытаний. Для установки разрешите установку APK приложению, которым открываете файл.
 
 ## Оформление и движение
 
-По умолчанию включена яркая палитра в духе Google: синий, зелёный, жёлтый и красный. На Android 12+ переключатель «Цвета обоев» включает системную палитру Material You, в том числе для карточек сервисов. Ранее сохранённый выбор цветов обоев сохраняется.
+По умолчанию включена яркая палитра с синими, зелёными и сиреневыми тональными контейнерами. На широком экране каталог переходит в сетку; при крупном шрифте карточки занимают всю ширину. Статусы используют контрастный цвет своей поверхности. Сведения о странице открываются в прокручиваемой нижней панели с быстрыми действиями. На Android 12+ переключатель «Цвета обоев» включает системную палитру Material You, в том числе для карточек сервисов. Ранее сохранённый выбор цветов обоев сохраняется.
 
-У каждого сервиса свой встроенный векторный фон и круглая иконка фиксированного размера с центрированным знаком. Значок приложения выровнен внутри безопасной области адаптивной маски и поддерживает тематическую окраску Android 13+. Декор не скачивается из сети. Переходы разделов, тема, избранное, нажатия, фильтрация и подробности анимированы средствами Compose с учётом системного масштаба анимации. Поиск и положение списка сохраняются между разделами.
+У каждого сервиса свой встроенный векторный фон и иконка фиксированного размера с центрированным знаком. Значок приложения выровнен внутри безопасной области адаптивной маски и поддерживает тематическую окраску Android 13+. Декор не скачивается из сети. Переходы разделов, тема, избранное, нажатия, фильтрация и подробности анимированы средствами Compose с учётом системного масштаба анимации. Поиск и положение списка сохраняются между разделами.
 
 Нативные библиотеки сжаты в APK, чтобы уменьшить скачивание. При установке Android распаковывает их, поэтому размер установленного приложения остаётся больше размера APK. Загрузка сайтов Google по-прежнему требует подключения к интернету.
 

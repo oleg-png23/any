@@ -38,16 +38,16 @@ jobs:
       - name: Collect APK and checksum
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/aBypass-0.1.5-arm64.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/aBypass-0.1.6-arm64.apk
           abypass_signer="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
-          "$abypass_signer" verify --verbose --print-certs out/aBypass-0.1.5-arm64.apk > out/APK-SIGNATURE.txt
+          "$abypass_signer" verify --verbose --print-certs out/aBypass-0.1.6-arm64.apk > out/APK-SIGNATURE.txt
           abypass_tools="${abypass_signer%/*}"
-          "$abypass_tools/aapt2" dump badging out/aBypass-0.1.5-arm64.apk > out/APK-INFO.txt
+          "$abypass_tools/aapt2" dump badging out/aBypass-0.1.6-arm64.apk > out/APK-INFO.txt
           cd out
-          sha256sum aBypass-0.1.5-arm64.apk > SHA256SUMS
+          sha256sum aBypass-0.1.6-arm64.apk > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: aBypass-0.1.5-arm64
+          name: aBypass-0.1.6-arm64
           path: aBypass/out/*
           if-no-files-found: error
           retention-days: 30
@@ -109,7 +109,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: aBypass-0.1.5-arm64
+          name: aBypass-0.1.6-arm64
           path: package
       - name: Verify and publish this version
         working-directory: package
@@ -117,20 +117,20 @@ jobs:
         run: |
           set -euo pipefail
           sha256sum --check SHA256SUMS
-          if gh release view abypass-v0.1.5 --repo oleg-png23/any > /dev/null 2>&1; then
-            echo 'Version 0.1.5 already published; keeping its immutable release.'
+          if gh release view abypass-v0.1.6 --repo oleg-png23/any > /dev/null 2>&1; then
+            echo 'Version 0.1.6 already published; keeping its immutable release.'
             exit 0
           fi
           cat > RELEASE-NOTES.md <<'NOTES'
-          aBypass 0.1.5 — пробная сборка для Android 8.0+, ARM64.
+          aBypass 0.1.6 — пробная сборка для Android 8.0+, ARM64.
 
-          Переработан нативный интерфейс Material 3: типографика, тональные карточки, поиск, сегментированный переключатель, оформление настроек и плавающая панель браузера. Цвета обоев поддерживаются на Android 12+.
+          Доработан Material 3: индивидуальные векторные фоны карточек, адаптивная сетка для широкого экрана, анимация формы при нажатии и заполненные иконки активного раздела. Исправлен контраст статусов на цветных карточках.
 
-          AI Studio: распознаётся переход на страницу доступности, показываются пояснение и отдельный статус. Исправление доступа к AI Studio не заявляется: для определения причины нужны текст отказа и журнал с устройства. Обработчик Flow из 0.1.4 сохранён.
+          Сведения о странице перенесены в нижнюю панель с быстрым экспортом журнала, переключением настольного режима и открытием во внешнем браузере. Рисунки встроены в приложение и не требуют загрузки.
 
-          Проверки парсера и Android проходят автоматически до публикации. Доступ к Flow с конкретным аккаунтом требует проверки на устройстве.
+          AI Studio отложен по запросу пользователя; восстановление доступа не заявляется. Обработчик Flow сохранён.
 
           Подпись тестовой сборки отличается от предыдущих версий. Перед установкой потребуется удалить прежнюю версию; настройки и вход внутри приложения будут сброшены.
           NOTES
-          gh release create abypass-v0.1.5 aBypass-0.1.5-arm64.apk SHA256SUMS --repo oleg-png23/any --target "$GITHUB_SHA" --title 'aBypass 0.1.5' --prerelease --notes-file RELEASE-NOTES.md
+          gh release create abypass-v0.1.6 aBypass-0.1.6-arm64.apk SHA256SUMS --repo oleg-png23/any --target "$GITHUB_SHA" --title 'aBypass 0.1.6' --prerelease --notes-file RELEASE-NOTES.md
 
