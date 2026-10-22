@@ -59,20 +59,25 @@ positions and unknown RPCs remain untouched. A client status rewrite does not
 establish eligibility or bypass server-side account checks. These private schemas
 remain experimental and require device testing.
 
-Parsing is bounded to 1 MiB, with recursion/node limits. Length-delimited batches
-first try consistent UTF-8 byte lengths, then UTF-16
-code-unit counts including the leading LF. A mode is accepted only after the
-whole response parses consistently; modes cannot be mixed between frames. The
-original length convention is preserved on rewrite, and any malformed frame or
-target payload rejects the entire response. Unmodified and rejected
-responses preserve the original bytes. Fetch reads only a clone and returns the
-original response on failure, disable, or redirect; request bodies and errors
-are untouched. XHR checks its final `responseURL`. Requests sent before the first
-native config can adopt only an initial enabled answer at revision 1. A first
-disabled answer or any disable/re-enable cycle invalidates older requests.
-Fetch waits at most 800 ms for initial config, then sends normally; a later
-initial enabled answer may still authorize its response before transformation.
-Manual logout is never intercepted.
+Parsing is bounded to 1 MiB for input/output, at most 2048 frames, and bounded
+JSON traversal. Length-delimited batches accept UTF-8 byte or UTF-16 code-unit
+counts, LF/CRLF headers, counted/un-counted header separators and JSON padding.
+Every candidate convention must parse the entire response. Candidates must
+produce identical output; otherwise the whole response remains unchanged.
+Rewrites preserve payload padding and original separators and adjust the declared
+length by the JSON delta. Literal Unicode code-point counts are preserved while
+newly decoded Unicode escapes remain escaped, so overlapping byte/code-unit
+interpretations cannot produce different length deltas. Unchanged frames remain
+byte-for-byte intact. Malformed frames or target payloads reject the entire
+response. Diagnostic reasons are fixed codes, never raw payloads.
+
+Fetch reads only a clone and returns the original response on failure, disable,
+or redirect; request bodies and errors are untouched. XHR checks its final
+`responseURL`. Requests sent before the first native config can adopt only an
+initial enabled answer at revision 1. A first disabled answer or any
+disable/re-enable cycle invalidates older requests. Fetch waits at most 800 ms
+for initial config, then sends normally; a later initial enabled answer may still
+authorize its response before transformation. Manual logout is never intercepted.
 
 Flow's `/unsupported-country` can return to `/` at most once in five minutes per
 tab, only while enabled. If sessionStorage is unavailable, no redirect is tried.

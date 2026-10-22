@@ -113,15 +113,41 @@
   }
 
   function prefixLength(body) {
-    if (body.startsWith(")]}'\n\n")) return 6;
-    if (body.startsWith(")]}'\n")) return 5;
-    return 0;
+    const match = /^[\uFEFF \t\r\n]*\)\]}'(?:\r?\n){1,2}/.exec(body);
+    return match ? match[0].length : 0;
   }
 
-  // Parse one consistent length convention across the complete response. The
-  // alternate format accepts UTF-16 code-unit counts including the leading
-  // LF; try that only after complete UTF-8 parses fail, never frame by frame.
-  function parseFrames(source, offset, inclusiveLf, utf16 = false) {
+  function framingError(code) {
+    const error = new Error(code);
+    error.framingCode = code;
+    return error;
+  }
+
+  function serializeFrame(value, original) {
+    // Keep the original number of literal Unicode code points. Newly decoded
+    // escape sequences stay escaped, so byte and UTF-16 length deltas agree
+    // even when whitespace makes both wire conventions parse successfully.
+    const remaining = new Map();
+    for (const character of original.match(/[^\x00-\x7f]/gu) || []) {
+      remaining.set(character, (remaining.get(character) || 0) + 1);
+    }
+    const json = stringify(value).replace(/[^\x00-\x7f]/gu, character => {
+      const count = remaining.get(character) || 0;
+      if (count) { remaining.set(character, count - 1); return character; }
+      let escaped = "";
+      for (let index = 0; index < character.length; index++) {
+        escaped += "\\u" + character.charCodeAt(index).toString(16).padStart(4, "0");
+      }
+      return escaped;
+    });
+    if ([...remaining.values()].some(count => count !== 0)) throw new Error("Unicode preservation failed");
+    return json;
+  }
+
+  // A length convention applies to the complete stream, never frame by frame.
+  // Preserve JSON padding and update the original declared length by its delta.
+  // This makes counted/un-counted separator whitespace equivalent on rewrite.
+  function parseFrames(source, offset, includedSeparator, utf16 = false) {
     const codeAt = index => utf16 ? source.charCodeAt(index) : source[index];
     const textAt = (start, end) => utf16 ? source.slice(start, end) : decoder.decode(source.slice(start, end));
     const frames = [];
@@ -129,29 +155,31 @@
     while (pos < source.length) {
       const segmentStart = pos;
       while (pos < source.length && [9, 10, 13, 32].includes(codeAt(pos))) pos++;
-      if (pos === source.length) {
-        return { frames, tail: textAt(segmentStart) };
-      }
+      if (pos === source.length) return { frames, tail: textAt(segmentStart) };
+      if (frames.length >= 2048) throw framingError("batch-frame-limit");
       const headerStart = pos;
       while (pos < source.length && codeAt(pos) >= 48 && codeAt(pos) <= 57) pos++;
+      const digitsEnd = pos;
       const digits = textAt(headerStart, pos);
-      if (!/^[1-9][0-9]{0,6}$/.test(digits) || codeAt(pos) !== 10) throw new Error("bad frame header");
+      if (codeAt(pos) === 13) pos++;
+      if (!/^[1-9][0-9]{0,6}$/.test(digits) || codeAt(pos) !== 10) throw framingError("batch-header");
+      pos++;
+      const separator = textAt(digitsEnd, pos);
       const declared = Number(digits);
-      const length = declared - (inclusiveLf ? 1 : 0);
-      const start = pos + 1;
-      const end = start + length;
-      if (length <= 0 || declared > MAX_BYTES || end > source.length) throw new Error("truncated frame");
-      const text = textAt(start, end);
-      // Do not let a counted separator LF make two different framing modes
-      // look valid. Unknown padded payloads are passed through conservatively.
-      if (!text.startsWith("[") || !text.endsWith("]")) throw new Error("ambiguous frame padding");
-      const value = parse(text);
-      if (!Array.isArray(value)) throw new Error("unknown frame schema");
-      frames.push({
-        value,
-        leading: textAt(segmentStart, headerStart),
-        original: textAt(headerStart, end)
-      });
+      const included = includedSeparator === "header" ? separator.length : includedSeparator;
+      const length = declared - included;
+      const end = pos + length;
+      if (length <= 0 || declared > MAX_BYTES || end > source.length) throw framingError("batch-length");
+      let text;
+      let value;
+      try { text = textAt(pos, end); value = parse(text); }
+      catch (_) { throw framingError("batch-frame-json"); }
+      if (!Array.isArray(value)) throw framingError("batch-frame-json");
+      const before = /^[ \t\r\n]*/.exec(text)[0];
+      const after = /[ \t\r\n]*$/.exec(text)[0];
+      frames.push({ value, declared, separator, before, after,
+        json: text.slice(before.length, text.length - after.length),
+        leading: textAt(segmentStart, headerStart), original: textAt(headerStart, end) });
       pos = end;
     }
     return { frames, tail: "" };
@@ -170,34 +198,45 @@
       } catch (_) { return unchanged(body, "schema-mismatch", "batch-fields"); }
     }
     const bytes = encoder.encode(body);
-    let parsed;
-    let inclusiveLf = false;
-    let utf16 = false;
-    try { parsed = parseFrames(bytes, offset, false); }
-    catch (_) {
-      inclusiveLf = true;
-      try { parsed = parseFrames(bytes, offset, true); }
-      catch (_) {
-        utf16 = true;
-        try { parsed = parseFrames(body, offset, true, true); }
-        catch (_) { return unchanged(body, "schema-mismatch", "batch-framing"); }
+    const byteOffset = encoder.encode(prefix).length;
+    const failures = new Set();
+    let accepted = null;
+    let badFields = false;
+    for (const utf16 of [false, true]) {
+      for (const includedSeparator of [0, 1, "header"]) {
+        let parsed;
+        try { parsed = parseFrames(utf16 ? body : bytes, utf16 ? offset : byteOffset, includedSeparator, utf16); }
+        catch (error) { failures.add(error.framingCode || "batch-framing"); continue; }
+        try {
+          let count = 0;
+          const output = [];
+          const measure = text => utf16 ? text.length : encoder.encode(text).length;
+          for (const frame of parsed.frames) {
+            const result = patchBatch(frame.value);
+            count += result.count;
+            if (result.count) {
+              const json = serializeFrame(frame.value, frame.json);
+              const declared = frame.declared + measure(json) - measure(frame.json);
+              if (declared <= 0) throw new Error("frame length limit");
+              if (declared > MAX_BYTES) return unchanged(body, "schema-mismatch", "size-limit");
+              output.push(frame.leading + declared + frame.separator + frame.before + json + frame.after);
+            } else output.push(frame.leading + frame.original);
+          }
+          const candidate = count ? { changed: true, body: prefix + output.join("") + parsed.tail, reason: "patched", count } : unchanged(body);
+          if (encoder.encode(candidate.body).length > MAX_BYTES) return unchanged(body, "schema-mismatch", "size-limit");
+          // If two complete interpretations would rewrite differently, pass
+          // through atomically rather than choosing an arbitrary convention.
+          if (accepted && (candidate.body !== accepted.body || candidate.count !== accepted.count)) {
+            return unchanged(body, "schema-mismatch", "batch-ambiguous");
+          }
+          accepted = candidate;
+        } catch (_) { badFields = true; }
       }
     }
-    try {
-      let count = 0;
-      const output = [];
-      for (const frame of parsed.frames) {
-        const result = patchBatch(frame.value);
-        count += result.count;
-        if (result.count) {
-          const text = stringify(frame.value);
-          const length = utf16 ? text.length : encoder.encode(text).length;
-          output.push(frame.leading + (length + (inclusiveLf ? 1 : 0)) + "\n" + text);
-        } else output.push(frame.leading + frame.original);
-      }
-      if (!count) return unchanged(body);
-      return { changed: true, body: prefix + output.join("") + parsed.tail, reason: "patched", count };
-    } catch (_) { return unchanged(body, "schema-mismatch", "batch-fields"); }
+    if (badFields) return unchanged(body, "schema-mismatch", "batch-fields");
+    if (accepted) return accepted;
+    const detail = failures.size === 1 ? failures.values().next().value : "batch-framing";
+    return unchanged(body, "schema-mismatch", detail);
   }
 
   function transform(body, kind) {

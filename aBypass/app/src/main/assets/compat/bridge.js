@@ -8,7 +8,7 @@
   let nativePort = null;
   let config = { known: false, enabled: false, revision: 0 };
   const allowedEvents = new Set(["ready", "patched", "schema-mismatch", "region-page", "config-enabled", "config-disabled"]);
-  const allowedDetails = new Set(["country-field-type", "json-format", "batch-fields", "batch-framing", "size-limit", "response-read"]);
+  const allowedDetails = new Set(["country-field-type", "json-format", "batch-fields", "batch-framing", "size-limit", "response-read", "batch-header", "batch-length", "batch-frame-json", "batch-frame-limit", "batch-ambiguous"]);
 
   function notifyNative(event, count, detail) {
     if (!nativePort || !allowedEvents.has(event)) return;

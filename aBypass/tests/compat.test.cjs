@@ -267,6 +267,136 @@ function makeResponse(body, url = API, headers = { "content-type": "application/
   return response;
 }
 
+function readPaddedWire(raw, prefix, utf16, included, separator) {
+  const source = utf16 ? raw : Buffer.from(raw);
+  const text = (start, end) => utf16 ? source.slice(start, end) : source.subarray(start, end).toString("utf8");
+  const code = index => utf16 ? source.charCodeAt(index) : source[index];
+  let pos = utf16 ? prefix.length : Buffer.byteLength(prefix);
+  const frames = [];
+  while (pos < source.length) {
+    while ([9, 10, 13, 32].includes(code(pos))) pos++;
+    if (pos === source.length) break;
+    const start = pos;
+    while (code(pos) >= 48 && code(pos) <= 57) pos++;
+    const declared = Number(text(start, pos));
+    assert.equal(text(pos, pos + separator.length), separator);
+    pos += separator.length;
+    const length = declared - included;
+    assert.ok(length > 0 && pos + length <= source.length);
+    const payload = text(pos, pos + length);
+    frames.push({ value: JSON.parse(payload), before: /^[ \t\r\n]*/.exec(payload)[0], after: /[ \t\r\n]*$/.exec(payload)[0] });
+    pos += length;
+  }
+  return frames;
+}
+
+test("padded RPC frames retain separators and declared lengths for byte and UTF-16 streams", () => {
+  const rows = [...batch(appFields(false)), ["wrb.fr", "KV2T2d", '[20,false,{"credits":0}]']];
+  const unknown = [["wrb.fr", "unknown", JSON.stringify(["日本語 🌏", { age: false }])]];
+  for (const utf16 of [false, true]) for (const separator of ["\n", "\r\n"]) {
+    for (const included of [...new Set([0, 1, separator.length])]) {
+      for (const padding of ["", " \n", "\r\n\t "]) {
+        const prefix = ")]}'" + separator + separator;
+        const frameFor = value => {
+          const payload = padding + JSON.stringify(value) + padding;
+          return (utf16 ? payload.length : Buffer.byteLength(payload)) + included + separator + payload;
+        };
+        const source = prefix + frameFor(rows) + separator + frameFor(unknown) + separator;
+        const result = core.transform(source, "batch");
+        assert.equal(result.changed, true, JSON.stringify({ utf16, separator, included, padding }));
+        assert.equal(result.count, 2);
+        const decoded = readPaddedWire(result.body, prefix, utf16, included, separator);
+        assert.equal(JSON.parse(decoded[0].value[0][2])[30], true);
+        assert.equal(JSON.parse(decoded[0].value[0][2])[31], 0);
+        assert.deepEqual(JSON.parse(decoded[0].value[1][2]), [1, false, { credits: 0 }]);
+        assert.deepEqual(decoded[1].value, unknown);
+        assert.equal(decoded[0].before, padding);
+        assert.equal(decoded[0].after, padding);
+        assert.ok(result.body.endsWith(frameFor(unknown) + separator), "unmodified frames remain byte-for-byte identical");
+      }
+    }
+  }
+});
+
+test("ASCII streams with escaped Unicode can be rewritten without inventing an encoding convention", () => {
+  const fields = appFields();
+  fields[3] = "А 🌏";
+  const rows = batch(fields);
+  rows[0][2] = rows[0][2].replace(/[^\x00-\x7f]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  const json = JSON.stringify(rows);
+  assert.equal(Buffer.byteLength(json), json.length);
+  const prefix = ")]}'\n\n";
+  const source = prefix + (json.length + 1) + "\n" + json + "\n";
+  const result = core.transform(source, "batch");
+  assert.equal(result.changed, true);
+  for (const utf16 of [false, true]) {
+    const decoded = readPaddedWire(result.body, prefix, utf16, 1, "\n");
+    const patched = JSON.parse(decoded[0].value[0][2]);
+    assert.equal(patched[3], "А 🌏");
+    assert.equal(patched[30], 1);
+  }
+});
+
+test("Unicode spelling remains length-neutral when padding permits both byte and UTF-16 interpretations", () => {
+  const fields = appFields();
+  fields[3] = "я 🌏";
+  const rows = batch(fields);
+  rows.unshift(["wrb.fr", "unknown", "я 🌍"]);
+  const json = JSON.stringify(rows);
+  const padding = " ".repeat(120);
+  const prefix = ")]}'\n\n";
+  const payload = json + padding;
+  const source = prefix + Buffer.byteLength(payload) + "\n" + payload + "\n".repeat(120);
+  const result = core.transform(source, "batch");
+  assert.equal(result.changed, true);
+  for (const utf16 of [false, true]) {
+    const before = readPaddedWire(source, prefix, utf16, 0, "\n")[0];
+    const after = readPaddedWire(result.body, prefix, utf16, 0, "\n")[0];
+    assert.deepEqual(after.value[0], before.value[0]);
+    assert.equal(JSON.parse(after.value[1][2])[30], 1);
+    assert.equal(JSON.parse(after.value[1][2])[3], fields[3]);
+  }
+});
+
+test("BOM and CRLF XSSI prefixes preserve exact bytes while frames are patched", () => {
+  const prefix = "\ufeff \t)]}'\r\n\r\n";
+  const json = JSON.stringify(batch());
+  const source = prefix + Buffer.byteLength(json) + "\r\n" + json;
+  const result = core.transform(source, "batch");
+  assert.equal(result.changed, true);
+  assert.ok(result.body.startsWith(prefix));
+  const decoded = readPaddedWire(result.body, prefix, false, 0, "\r\n");
+  assert.equal(JSON.parse(decoded[0].value[0][2])[30], 1);
+});
+
+test("expanded default fields cannot grow an accepted response past the output size limit", () => {
+  const makeWire = count => frame([...batch([]), ["wrb.fr", "unknown", JSON.stringify(["x".repeat(count)])]]);
+  const overhead = makeWire(0).length;
+  const source = makeWire(core.MAX_BYTES - 50 - overhead);
+  assert.ok(source.length < core.MAX_BYTES);
+  const result = core.transform(source, "batch");
+  assert.equal(result.changed, false);
+  assert.equal(result.body, source);
+  assert.equal(result.detail, "size-limit");
+});
+
+test("a malformed padded tail rejects the complete stream and reports only fixed reason codes", () => {
+  const prefix = ")]}'\r\n\r\n";
+  const payload = "\r\n" + JSON.stringify(batch()) + "\r\n";
+  const good = Buffer.byteLength(payload) + "\r\n" + payload;
+  for (const tail of ["20\r\n[]", "5\r\n[bad]", "3\r\n{}x", "oops\r\n[]"]) {
+    const source = prefix + good + "\r\n" + tail;
+    const result = core.transform(source, "batch");
+    assert.equal(result.body, source);
+    assert.equal(result.changed, false);
+    assert.ok(["batch-framing", "batch-length", "batch-header", "batch-frame-json"].includes(result.detail));
+  }
+  const many = "2\n[]\n".repeat(2050);
+  const result = core.transform(many, "batch");
+  assert.equal(result.body, many);
+  assert.equal(result.changed, false);
+});
+
 function makeWindow(fetchFunction) {
   const win = new EventTarget();
   win.location = {
@@ -319,7 +449,7 @@ test("fetch rewrites a complete framed availability response and reports bounded
     const result = await win.fetch(BATCH);
     if (malformed) {
       assert.equal(result, original);
-      assert.deepEqual(diagnostics, [["schema-mismatch", 1, "batch-framing"]]);
+      assert.deepEqual(diagnostics, [["schema-mismatch", 1, "batch-length"]]);
     } else {
       assert.deepEqual(JSON.parse(unframe(await result.text())[0][0][2]), [1, false]);
       assert.deepEqual(diagnostics, [["patched", 1]]);
