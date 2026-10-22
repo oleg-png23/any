@@ -43,25 +43,13 @@ internal fun serviceIcon(id: String): ImageVector = when (id) {
 @Composable
 internal fun serviceStyle(id: String): ServiceStyle {
     val colors = MaterialTheme.colorScheme
-    if (LocalWallpaperColors.current) {
-        val (container, ink) = when (id) {
-            "studio" -> Pair(colors.tertiaryContainer, colors.onTertiaryContainer)
-            "labs" -> Pair(colors.secondaryContainer, colors.onSecondaryContainer)
-            else -> Pair(colors.primaryContainer, colors.onPrimaryContainer)
-        }
-        return ServiceStyle(container, container, ink, ink)
+    val (container, ink) = when (id) {
+        "studio" -> colors.tertiaryContainer to colors.onTertiaryContainer
+        "labs" -> colors.secondaryContainer to colors.onSecondaryContainer
+        "gemini" -> colors.surfaceContainerHighest to colors.onSurface
+        else -> colors.primaryContainer to colors.onPrimaryContainer
     }
-    val dark = colors.surface.luminance() < 0.35f
-    return when (id) {
-        "flow" -> if (dark) ServiceStyle(Color(0xFF123C78), Color(0xFF16325B), Color(0xFFEAF1FF), Color(0xFFA8C7FA))
-            else ServiceStyle(Color(0xFFD3E3FD), Color(0xFFE1ECFF), Color(0xFF041E49), Color(0xFF0B57D0))
-        "studio" -> if (dark) ServiceStyle(Color(0xFF534000), Color(0xFF3D3212), Color(0xFFFFEFC7), Color(0xFFFFD66D))
-            else ServiceStyle(Color(0xFFFFE7A5), Color(0xFFFFF1CF), Color(0xFF352300), Color(0xFF805600))
-        "labs" -> if (dark) ServiceStyle(Color(0xFF164B2A), Color(0xFF173A26), Color(0xFFD9F9E2), Color(0xFF6DD58C))
-            else ServiceStyle(Color(0xFFC4EED0), Color(0xFFDCF7E3), Color(0xFF072711), Color(0xFF146C2E))
-        else -> if (dark) ServiceStyle(Color(0xFF58302E), Color(0xFF402A35), Color(0xFFFFEDEA), Color(0xFFF2B8B5))
-            else ServiceStyle(Color(0xFFF9DEDC), Color(0xFFFCE9EC), Color(0xFF3F1210), Color(0xFFB3261E))
-    }
+    return ServiceStyle(container, container, ink, ink)
 }
 
 @Composable
@@ -130,8 +118,9 @@ internal fun ServiceBackdrop(id: String, style: ServiceStyle, modifier: Modifier
 @Composable
 internal fun ServiceAvatar(id: String, modifier: Modifier = Modifier) {
     val style = serviceStyle(id)
-    Surface(modifier.requiredSize(52.dp).testTag("service-avatar-$id"), shape = CircleShape, color = style.accent, contentColor = style.start) {
+    Surface(modifier.requiredSize(52.dp).testTag("service-avatar-$id"), shape = when (id) { "studio" -> androidx.compose.foundation.shape.RoundedCornerShape(16.dp); "labs" -> androidx.compose.foundation.shape.RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = 22.dp, bottomEnd = 6.dp); else -> CircleShape }, color = style.accent, contentColor = style.start) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(serviceIcon(id), contentDescription = null, modifier = Modifier.requiredSize(28.dp).testTag("service-glyph-$id")) }
     }
 }
+
 

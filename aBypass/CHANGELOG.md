@@ -1,5 +1,14 @@
 # Изменения
 
+## 0.1.5
+
+- Rebuilt the catalog around Material 3 tonal cards, display typography, segmented selection and a single prominent service action.
+- Cards derive colors from MaterialTheme roles in both the fixed and wallpaper palettes; settings use grouped surfaces and the browser uses a tonal floating toolbar.
+- AI Studio eligibility redirects now produce an access-restricted status, native explanation and a diagnostic event. The shared Google destination does not identify whether region, age or account is the cause.
+- Diagnostic exports include desktop mode and supported adapter settings, without page URLs, account identifiers, cookies or response bodies.
+- Flow's 0.1.4 compatibility adapter is unchanged. No AI Studio access fix is claimed without device evidence.
+
+
 ## 0.1.4
 
 - Парсер RPC принимает пробелы и переносы вокруг JSON, LF/CRLF и длины UTF-16 без включённого перевода строки.
@@ -39,4 +48,5 @@
 - GeckoView, общий профиль сайтов, навигация, всплывающие окна, выбор файлов, скачивание и локальная диагностика.
 - Оригинальный ограниченный региональный адаптер для Flow/Labs.
 - Автоматические тесты адаптера, JVM-проверки, Compose UI-тесты и сборка ARM64 APK в GitHub Actions.
+
 

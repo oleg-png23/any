@@ -20,7 +20,7 @@ object Services {
 }
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
-enum class CheckStatus { NOT_CHECKED, PAGE_OPENED, SIGN_IN_REQUIRED, NETWORK_ERROR }
+enum class CheckStatus { NOT_CHECKED, PAGE_OPENED, SIGN_IN_REQUIRED, NETWORK_ERROR, ACCESS_RESTRICTED }
 
 data class ServiceRecord(
     val status: CheckStatus = CheckStatus.NOT_CHECKED,
@@ -48,5 +48,7 @@ data class BrowserUiState(
     val canGoForward: Boolean = false,
     val error: String? = null,
     val extensionReady: Boolean = false,
+    val accessRestricted: Boolean = false,
 )
+
 

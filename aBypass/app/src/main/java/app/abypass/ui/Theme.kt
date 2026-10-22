@@ -34,8 +34,8 @@ private val LightColors = lightColorScheme(
     primaryContainer = Color(0xFFD3E3FD), onPrimaryContainer = Color(0xFF041E49),
     secondary = Color(0xFF146C2E), onSecondary = Color.White,
     secondaryContainer = Color(0xFFC4EED0), onSecondaryContainer = Color(0xFF072711),
-    tertiary = Color(0xFF805600), onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFFFE7A5), onTertiaryContainer = Color(0xFF291800),
+    tertiary = Color(0xFF6E4B9B), onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFEADDFF), onTertiaryContainer = Color(0xFF251047),
     error = Color(0xFFB3261E), errorContainer = Color(0xFFF9DEDC),
     background = Color(0xFFF8FAFD), onBackground = Color(0xFF1F1F1F),
     surface = Color(0xFFF8FAFD), onSurface = Color(0xFF1F1F1F),
@@ -51,8 +51,8 @@ private val DarkColors = darkColorScheme(
     primaryContainer = Color(0xFF0842A0), onPrimaryContainer = Color(0xFFD3E3FD),
     secondary = Color(0xFF6DD58C), onSecondary = Color(0xFF003918),
     secondaryContainer = Color(0xFF0F5223), onSecondaryContainer = Color(0xFFC4EED0),
-    tertiary = Color(0xFFFFD66D), onTertiary = Color(0xFF432C00),
-    tertiaryContainer = Color(0xFF614100), onTertiaryContainer = Color(0xFFFFE7A5),
+    tertiary = Color(0xFFD5BAFF), onTertiary = Color(0xFF3D245D),
+    tertiaryContainer = Color(0xFF553B78), onTertiaryContainer = Color(0xFFEADDFF),
     error = Color(0xFFF2B8B5), errorContainer = Color(0xFF8C1D18),
     background = Color(0xFF101318), onBackground = Color(0xFFE3E3E3),
     surface = Color(0xFF101318), onSurface = Color(0xFFE3E3E3),
@@ -66,11 +66,19 @@ private val DarkColors = darkColorScheme(
 internal val LocalWallpaperColors = androidx.compose.runtime.staticCompositionLocalOf { false }
 
 private val AppTypography = Typography(
-    headlineLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 38.sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 28.sp, lineHeight = 34.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 22.sp, lineHeight = 28.sp),
+    displaySmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 36.sp, lineHeight = 44.sp, letterSpacing = (-0.5).sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 40.sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 36.sp),
+    headlineSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 24.sp, lineHeight = 32.sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 22.sp, lineHeight = 28.sp),
     titleMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp),
+    titleSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+    bodyLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
+    bodyMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
+    bodySmall = TextStyle(fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
     labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+    labelSmall = TextStyle(fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp),
 )
 
 @Composable
@@ -102,11 +110,11 @@ fun ABypassTheme(settings: AppSettings, content: @Composable () -> Unit) {
             colorScheme = animatedColors(colors),
             typography = AppTypography,
             shapes = Shapes(
-                extraSmall = RoundedCornerShape(8.dp),
-                small = RoundedCornerShape(12.dp),
-                medium = RoundedCornerShape(20.dp),
-                large = RoundedCornerShape(28.dp),
-                extraLarge = RoundedCornerShape(36.dp),
+                extraSmall = RoundedCornerShape(4.dp),
+                small = RoundedCornerShape(8.dp),
+                medium = RoundedCornerShape(12.dp),
+                large = RoundedCornerShape(16.dp),
+                extraLarge = RoundedCornerShape(28.dp),
             ),
             content = content,
         )
@@ -137,4 +145,5 @@ private fun animatedColors(target: ColorScheme): ColorScheme {
 
 @Composable
 private fun motionColor(color: Color, role: String): Color = animateColorAsState(color, tween(260), label = role).value
+
 

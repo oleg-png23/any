@@ -293,195 +293,6 @@ fun ABypassApp(
 }
 
 @Composable
-private fun ServicesScreen(
-    settings: AppSettings,
-    records: Map<String, ServiceRecord>,
-    onSettingsChange: (AppSettings) -> Unit,
-    onOpenService: (ServiceDefinition) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var favoritesOnly by rememberSaveable { mutableStateOf(false) }
-    val filtered = Services.all.filter {
-        (!favoritesOnly || it.id in settings.favorites) &&
-            (it.name.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true))
-    }
-    LazyColumn(
-        modifier,
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Outlined.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.weight(1f))
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.Android, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-        }
-        item {
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer) {
-                Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.services_hero_title), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text(stringResource(R.string.services_hero_description), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                    Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
-            }
-        }
-        item {
-            TextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.search_services)) },
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
-                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear_search))
-                    }
-                },
-                singleLine = true,
-                shape = CircleShape,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-            )
-        }
-        item {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !favoritesOnly, onClick = { favoritesOnly = false }, label = { Text(stringResource(R.string.all_services)) }, leadingIcon = { Icon(Icons.Outlined.Apps, contentDescription = null, modifier = Modifier.size(18.dp)) })
-                FilterChip(
-                    selected = favoritesOnly,
-                    onClick = { favoritesOnly = true },
-                    label = { Text(stringResource(R.string.favorites)) },
-                    leadingIcon = { Icon(Icons.Outlined.FavoriteBorder, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                )
-            }
-        }
-        items(filtered, key = { it.id }) { service ->
-            ServiceCard(
-                service = service,
-                record = records[service.id] ?: ServiceRecord(),
-                favorite = service.id in settings.favorites,
-                adapterEnabled = service.id in settings.adapters,
-                onFavorite = {
-                    val favorites = if (service.id in settings.favorites) settings.favorites - service.id else settings.favorites + service.id
-                    onSettingsChange(settings.copy(favorites = favorites))
-                },
-                onOpen = { onOpenService(service) },
-                modifier = Modifier.animateItem(),
-            )
-        }
-        if (filtered.isEmpty()) {
-            item {
-                EmptyState(Icons.Outlined.Search, stringResource(R.string.no_services_title), stringResource(if (favoritesOnly) R.string.no_favorites_description else R.string.no_services_description))
-            }
-        }
-        item {
-            Row(Modifier.padding(top = 8.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(stringResource(R.string.services_footer), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ServiceCard(
-    service: ServiceDefinition,
-    record: ServiceRecord,
-    favorite: Boolean,
-    adapterEnabled: Boolean,
-    onFavorite: () -> Unit,
-    onOpen: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val style = serviceStyle(service.id)
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(if (pressed) 0.98f else 1f, spring(dampingRatio = 0.7f, stiffness = 500f), label = "card-press")
-    val favoriteScale by animateFloatAsState(if (favorite) 1.12f else 1f, spring(dampingRatio = 0.45f, stiffness = 600f), label = "favorite-toggle")
-    Card(
-        onClick = onOpen,
-        modifier = modifier.fillMaxWidth().graphicsLayer { scaleX = pressScale; scaleY = pressScale },
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
-        interactionSource = interaction,
-    ) {
-        BoxWithConstraints {
-            val stacked = maxWidth < 320.dp || LocalDensity.current.fontScale > 1.2f
-            ServiceBackdrop(service.id, style, Modifier.matchParentSize())
-            Column(Modifier.padding(20.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (stacked) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        ServiceAvatar(service.id)
-                        ServiceFavorite(service.name, favorite, style, favoriteScale, onFavorite)
-                    }
-                    ServiceHeading(service, style, Modifier.fillMaxWidth())
-                    StatusLabel(record.status, Modifier.fillMaxWidth().testTag("service-status-${service.id}"), style.ink)
-                    ServiceOpenButton(style, onOpen)
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        ServiceAvatar(service.id)
-                        ServiceHeading(service, style, Modifier.weight(1f))
-                        ServiceFavorite(service.name, favorite, style, favoriteScale, onFavorite)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusLabel(record.status, Modifier.weight(1f).testTag("service-status-${service.id}"), style.ink)
-                        ServiceOpenButton(style, onOpen)
-                    }
-                }
-                if (service.hasAdapter && adapterEnabled) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Outlined.Bolt, contentDescription = null, modifier = Modifier.size(16.dp), tint = style.accent)
-                        Text(stringResource(R.string.compatibility_enabled), style = MaterialTheme.typography.labelMedium, color = style.accent)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ServiceHeading(service: ServiceDefinition, style: ServiceStyle, modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(service.name, style = MaterialTheme.typography.titleLarge)
-        Text(service.description, style = MaterialTheme.typography.bodyMedium, color = style.ink)
-    }
-}
-
-@Composable
-private fun ServiceFavorite(name: String, favorite: Boolean, style: ServiceStyle, scale: Float, onFavorite: () -> Unit) {
-    IconToggleButton(checked = favorite, onCheckedChange = { onFavorite() }) {
-        Icon(
-            if (favorite) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
-            contentDescription = stringResource(if (favorite) R.string.remove_favorite else R.string.add_favorite, name),
-            tint = style.accent,
-            modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale },
-        )
-    }
-}
-
-@Composable
-private fun ServiceOpenButton(style: ServiceStyle, onOpen: () -> Unit) {
-    FilledTonalButton(onClick = onOpen, colors = ButtonDefaults.filledTonalButtonColors(containerColor = style.accent, contentColor = style.start)) {
-        Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(stringResource(R.string.open_service))
-    }
-}
-
-@Composable
 private fun NavigationIcon(icon: ImageVector, selected: Boolean) {
     val scale by animateFloatAsState(if (selected) 1.1f else 1f, spring(dampingRatio = 0.65f), label = "navigation-icon")
     Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
@@ -686,8 +497,15 @@ private fun SettingsScreen(
 
 @Composable
 private fun SettingsGroup(content: @Composable () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.large) {
-        Column(Modifier.fillMaxWidth(), content = { content() })
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.extraLarge) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), content = { content() })
+    }
+}
+
+@Composable
+private fun SettingIcon(icon: ImageVector) {
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null) }
     }
 }
 
@@ -702,7 +520,7 @@ private fun ThemeOption(
     ListItem(
         modifier = Modifier.selectable(selected = value == selected, onClick = { onSelect(value) }, role = Role.RadioButton),
         headlineContent = { Text(stringResource(label)) },
-        leadingContent = { Icon(icon, contentDescription = null) },
+        leadingContent = { SettingIcon(icon) },
         trailingContent = { RadioButton(selected = value == selected, onClick = null) },
         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     )
@@ -721,7 +539,7 @@ private fun SwitchSetting(
         modifier = Modifier.toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
         headlineContent = { Text(title) },
         supportingContent = { Text(description) },
-        leadingContent = { Icon(icon, contentDescription = null) },
+        leadingContent = { SettingIcon(icon) },
         trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     )
@@ -756,6 +574,9 @@ private fun BrowserScreen(
                     } else {
                         Text(stringResource(R.string.browser_no_adapter), style = MaterialTheme.typography.bodySmall)
                     }
+                    if (service?.id == "studio") {
+                        Text(stringResource(R.string.studio_access_help), style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { showPageInfo = false }) { Icon(Icons.Outlined.CheckCircleOutline, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.got_it)) } },
@@ -784,9 +605,9 @@ private fun BrowserScreen(
             }
         },
         bottomBar = {
-            Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
+            Surface(modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -802,6 +623,17 @@ private fun BrowserScreen(
         },
     ) { insets ->
         Column(Modifier.fillMaxSize().padding(insets)) {
+            AnimatedVisibility(browser.accessRestricted) {
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Outlined.Info, null)
+                        Text(stringResource(R.string.studio_access_title), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                        IconButton(onClick = { showPageInfo = true }) {
+                            Icon(Icons.Outlined.HelpOutline, stringResource(R.string.studio_access_details))
+                        }
+                    }
+                }
+            }
             if (browser.error != null) {
                 Surface(color = MaterialTheme.colorScheme.errorContainer) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -823,7 +655,7 @@ private fun PageHeader(title: String, subtitle: String, icon: ImageVector) {
             Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) {
                 Icon(icon, contentDescription = null, modifier = Modifier.padding(12.dp).size(28.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
             }
-            Text(title, style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f).semantics { heading() })
+            Text(title, style = MaterialTheme.typography.displaySmall, modifier = Modifier.weight(1f).semantics { heading() })
         }
         Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -847,12 +679,13 @@ private fun EmptyState(icon: ImageVector, title: String, description: String) {
 }
 
 @Composable
-private fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier, fallbackColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+internal fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier, fallbackColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     val (icon, label) = when (status) {
         CheckStatus.NOT_CHECKED -> Icons.Outlined.HelpOutline to R.string.status_not_checked
         CheckStatus.PAGE_OPENED -> Icons.Outlined.CheckCircleOutline to R.string.status_page_opened
         CheckStatus.SIGN_IN_REQUIRED -> Icons.Outlined.Login to R.string.status_sign_in
         CheckStatus.NETWORK_ERROR -> Icons.Outlined.ErrorOutline to R.string.status_network_error
+        CheckStatus.ACCESS_RESTRICTED -> Icons.Outlined.Lock to R.string.status_access_restricted
     }
     val color = when (status) {
         CheckStatus.PAGE_OPENED -> MaterialTheme.colorScheme.primary
@@ -868,4 +701,5 @@ private fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier, fall
 private fun formatTimestamp(time: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(time))
 
 private fun domainOf(url: String): String = runCatching { URI(url).host }.getOrNull() ?: ""
+
 

@@ -7,6 +7,16 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class UrlRulesTest {
+    @Test fun studioAccessRedirectIsRecognizedWithoutGuessingTheEligibilityReason() {
+        assertTrue(UrlRules.isStudioAccessPage("https://ai.google.dev/gemini-api/docs/available-regions?hl=ru"))
+        assertTrue(UrlRules.isStudioAccessPage("https://ai.google.dev/gemini-api/docs/available-regions/"))
+        listOf("https://ai.google.dev/", "https://ai.google.dev/gemini-api/docs/available-regions-other",
+            "https://ai.google.dev.example.com/gemini-api/docs/available-regions",
+            "https://ai.google.dev@evil.example/gemini-api/docs/available-regions",
+            "http://ai.google.dev/gemini-api/docs/available-regions",
+            "https://ai.google.dev:8443/gemini-api/docs/available-regions", "not a URL")
+            .forEach { assertFalse(it, UrlRules.isStudioAccessPage(it)) }
+    }
     @Test fun flowSettingAppliesToBothCanonicalOriginsAndSpaRoutes() {
         assertEquals("flow", UrlRules.adapterService("https://flow.google.com/"))
         assertEquals("flow", UrlRules.adapterService("https://labs.google/fx/tools/flow/project/1"))
@@ -27,3 +37,4 @@ class UrlRulesTest {
             .forEach { assertFalse(it, UrlRules.isServicePage("studio", it)) }
     }
 }
+

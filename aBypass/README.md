@@ -1,5 +1,10 @@
 # aBypass
 
+Version 0.1.5 redesigns the native interface using [Material 3](https://m3.material.io/get-started) and the official [Compose implementation](https://developer.android.com/develop/ui/compose/designsystems/material3): tonal container roles, 36/44 display typography, filled cards, segmented buttons, grouped settings and a floating browser toolbar. Wallpaper colors remain optional on Android 12+.
+
+AI Studio has its own eligibility checks. A redirect to Google's available-regions documentation now has a distinct status and explanation; it is not recorded as successful access. This version does not claim to restore AI Studio access. To diagnose it, open Studio and export the app journal along with the visible error text. Flow's adapter is retained from 0.1.4.
+
+
 Android-приложение с нативным интерфейсом Material 3 для Flow, AI Studio, Google Labs и Gemini. Каталог, избранное, поиск, светлая/тёмная тема, динамические цвета, встроенный браузер, файлы и локальная диагностика.
 
 ## Установка
@@ -65,4 +70,5 @@ Gradle 9.6.0 закреплён Wrapper с SHA-256 дистрибутива. AGP
 - `app/src/androidTest` — UI-тесты без Google-аккаунта и сети.
 
 Референс исследован по методике [REA](https://github.com/morluto/rea); исходный APK не включён в репозиторий. Реализация адаптера написана заново. GeckoView распространяется под MPL 2.0, AndroidX — Apache 2.0; их уведомления остаются в составе зависимостей.
+
 

@@ -167,6 +167,17 @@ class AppScreensTest {
     }
 
     @Test
+    fun studioEligibilityRedirectShowsAnExplanationWithoutHidingTheGooglePage() {
+        render(browser = BrowserUiState(serviceId = "studio",
+            url = "https://ai.google.dev/gemini-api/docs/available-regions", accessRestricted = true))
+        compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.studio_access_title)).assertIsDisplayed()
+        compose.saveScreenshot("studio-access")
+        compose.onNodeWithContentDescription(text(R.string.studio_access_details)).performClick()
+        compose.onNodeWithText(text(R.string.studio_access_help)).assertIsDisplayed()
+    }
+
+    @Test
     fun serviceAvatarsStaySquareAndCenteredOnNarrowScreensWithLargeText() {
         render(largeText = true)
         for (service in Services.all) {
@@ -287,4 +298,5 @@ internal fun ComposeContentTestRule.saveScreenshot(name: String): File {
     }
     return file
 }
+
 

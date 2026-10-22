@@ -5,8 +5,8 @@
     <string name="nav_services">Сервисы</string>
     <string name="nav_checks">Проверки</string>
     <string name="nav_settings">Настройки</string>
-    <string name="services_hero_title">Ваши AI-инструменты.\nРядом.</string>
-    <string name="services_hero_description">Открывайте любимые сервисы Google в удобном пространстве.</string>
+    <string name="services_hero_title">Больше места\nдля идей.</string>
+    <string name="services_hero_description">Твои инструменты Google. Всё под рукой.</string>
     <string name="search_services">Найти сервис</string>
     <string name="clear_search">Очистить поиск</string>
     <string name="all_services">Все сервисы</string>
@@ -27,6 +27,10 @@
     <string name="status_page_opened">Страница открылась</string>
     <string name="status_sign_in">Нужен вход</string>
     <string name="status_network_error">Ошибка загрузки</string>
+    <string name="status_access_restricted">Доступ ограничен</string>
+    <string name="studio_access_title">AI Studio ограничил доступ</string>
+    <string name="studio_access_details">Почему ограничен доступ</string>
+    <string name="studio_access_help">AI Studio проверяет доступ отдельно от Flow. Перенаправление на страницу доступных стран может означать ограничение региона, возраста или аккаунта. Если сайт пустой, попробуйте «Версия для компьютера». Для разбора отказа откройте AI Studio, затем сохраните журнал: Проверки → Подробности → Экспорт журнала. Добавьте текст ошибки или скриншот. Журнал не содержит cookies и ваших запросов.</string>
     <string name="technical_details">Подробности</string>
     <string name="technical_details_subtitle">Совместимость и журнал событий</string>
     <string name="expand">Развернуть</string>
@@ -79,4 +83,5 @@
     <string name="browser_no_adapter">Отдельного адаптера для этого сервиса пока нет. Доступно обычное открытие сайта.</string>
     <string name="got_it">Понятно</string>
 </resources>
+
 

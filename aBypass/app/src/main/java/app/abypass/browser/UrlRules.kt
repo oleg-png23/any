@@ -3,6 +3,14 @@ package app.abypass.browser
 import java.net.URI
 
 object UrlRules {
+    /** This destination is shared by regional, age and account eligibility refusals. */
+    fun isStudioAccessPage(url: String): Boolean = runCatching {
+        val uri = URI(url)
+        uri.scheme == "https" && uri.userInfo == null && (uri.port == -1 || uri.port == 443) &&
+            uri.host?.lowercase() == "ai.google.dev" &&
+            uri.path.trimEnd('/') == "/gemini-api/docs/available-regions"
+    }.getOrDefault(false)
+
     fun adapterService(url: String): String? = runCatching {
         val uri = URI(url)
         if (uri.scheme != "https" || uri.userInfo != null || (uri.port != -1 && uri.port != 443)) return@runCatching null
@@ -27,3 +35,4 @@ object UrlRules {
         }
     }.getOrDefault(false)
 }
+
