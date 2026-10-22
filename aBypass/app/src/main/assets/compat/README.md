@@ -16,9 +16,10 @@ compatibility with Google's changing private schemas remains experimental.
   Config is false until a native reply, and false on port disconnect. Reload the
   service when changing its preference so initial XHR checks run consistently.
 - Native receives `{ "type": "diagnostic", "event": "ready" | "patched" |
-  "schema-mismatch" | "region-page", "count"?: positive integer }`.
+  "schema-mismatch" | "region-page" | "config-enabled" | "config-disabled", "count"?: positive integer, "detail"?: fixed reason code }`.
   Diagnostics contain no URLs, cookies or request/response bodies. They describe
-  local activity, not successful authentication or server access, and page-side
+  local activity, not successful authentication or server access. Parse reasons
+  are a fixed allowlist, never raw response content. Page-side
   diagnostic events must be treated as untrusted observations.
 
 `bridge.js` runs in ISOLATED world and owns the native port. Firefox's
@@ -42,14 +43,21 @@ These paths are conservative schema candidates inferred from the APK's endpoint
 names. A name in a query, other host/subdomain, auth/logout endpoint, redirect to
 another endpoint, iframe, or AI Studio is excluded.
 
-JSON transforms only existing Boolean `isCountrySupported` /
-`is_country_supported` flags. `availabilityState`, age, plan, billing, credits,
-quotas and all other fields are untouched. An unknown type for a geographic flag
-rejects the whole response. Batchexecute supports only existing 31+-field
-`cPZSdc` arrays with country field index 30 holding Boolean or 0/1. It preserves
-age index 31 and never pads arrays. Other observed RPCs return mixed eligibility;
-they are intentionally passed through because a general availability override
-could also override age, subscription or payment checks.
+JSON transforms existing Boolean, 0/1 or null `isCountrySupported` /
+`is_country_supported` fields, and explicitly geographic `availabilityState`
+values (for example `COUNTRY_UNAVAILABLE`). Generic unknown, age, payment and
+quota string states remain untouched. An unsupported geographic field type
+rejects the whole response.
+
+For `cPZSdc`, country field index 30 accepts Boolean, 0/1 or null/default.
+Protobuf JSON may omit trailing default fields: only the country position is
+materialized in a short array. Age index 31 is never added or rewritten.
+Four known availability RPCs (`KV2T2d`, `rThb8d`, `cO7JOb`, `md9xJf`) normalize
+the existing first status field, or its omitted default, to available. Boolean
+values retain their type; nonnegative int32 enum values become 1. Other payload
+positions and unknown RPCs remain untouched. A client status rewrite does not
+establish eligibility or bypass server-side account checks. These private schemas
+remain experimental and require device testing.
 
 Parsing is bounded to 1 MiB, with recursion/node limits. Length-delimited batches
 first try consistent UTF-8 byte lengths, then UTF-16
@@ -81,3 +89,4 @@ Official integration references:
 
 - https://mozilla.github.io/geckoview/consumer/docs/web-extensions
 - https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/content_scripts
+

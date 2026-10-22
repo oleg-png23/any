@@ -22,10 +22,10 @@
     return { known: false, enabled: false, revision: -1 };
   };
   const nativeJson = JSON;
-  const notify = testHooks && testHooks.notify ? testHooks.notify : (event, count) => {
+  const notify = testHooks && testHooks.notify ? testHooks.notify : (event, count, detail) => {
     try {
       win.dispatchEvent(new win.CustomEvent(DIAGNOSTIC_EVENT, {
-        detail: nativeJson.stringify({ event, count })
+        detail: nativeJson.stringify({ event, count, ...(detail ? { detail } : {}) })
       }));
     } catch (_) { /* Browsing does not depend on diagnostics. */ }
   };
@@ -145,7 +145,7 @@
         const result = core.transform(body, target.kind);
         if (!unchangedRevision(revision)) return response;
         if (!result.changed) {
-          if (result.reason === "schema-mismatch") notify("schema-mismatch", 1);
+          if (result.reason === "schema-mismatch") notify("schema-mismatch", 1, result.detail);
           return response;
         }
         const replacement = replacementResponse(result.body, response);
@@ -155,7 +155,7 @@
       } catch (_) {
         // Only a clone was read, so any parse/stream/wrapper failure can safely
         // return the original Response with its body still available.
-        notify("schema-mismatch", 1);
+        notify("schema-mismatch", 1, "response-read");
         return response;
       }
     };
@@ -195,7 +195,7 @@
           const value = result.changed && isJson ? nativeJson.parse(result.body) : result.changed ? result.body : raw;
           state.cache = { raw, value };
           if (result.changed) notify("patched", result.count);
-          else if (result.reason === "schema-mismatch") notify("schema-mismatch", 1);
+          else if (result.reason === "schema-mismatch") notify("schema-mismatch", 1, result.detail);
           return value;
         } catch (_) { return raw; }
       }
@@ -250,3 +250,4 @@
   recoverRegionPage();
   return { recoverRegionPage };
 });
+

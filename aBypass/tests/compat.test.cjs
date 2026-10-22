@@ -85,8 +85,8 @@ test("JSON only changes explicit geographic Boolean flags, preserving all other 
 test("malformed or unknown JSON preserves the exact original string transactionally", () => {
   for (const body of [
     " { not JSON } ",
-    '{ "availabilityState" : "COUNTRY_UNAVAILABLE", "isAgeSupported": false }\n',
-    '{ "isCountrySupported": false, "other": {"is_country_supported": 0} }',
+    '{ "availabilityState" : "PAYMENT_REQUIRED", "isAgeSupported": false }\n',
+    '{ "isCountrySupported": false, "other": {"is_country_supported": "0"} }',
     '{ "isCountrySupported" : true }\n',
     " [null, 0, false] "
   ]) assert.equal(core.transform(body, "json").body, body);
@@ -108,17 +108,80 @@ test("Flow config changes country field 30 and retains age, plan, credit and unk
   assert.equal(JSON.parse(JSON.parse(booleanResult.body)[0][2])[30], true);
 });
 
-test("general eligibility RPCs are not rewritten and short or unknown schemas are not padded", () => {
-  for (const fields of [[], Array(30).fill(0), appFields(null), appFields("0")]) {
+test("unknown RPCs and unsupported field types pass through; later invalid fields roll back the batch", () => {
+  for (const fields of [appFields("0"), appFields({ country: false }), appFields(2)]) {
     const source = " \n" + JSON.stringify(batch(fields));
     assert.equal(core.transform(source, "batch").body, source);
   }
-  for (const rpc of ["KV2T2d", "rThb8d", "cO7JOb", "md9xJf", "unknown"]) {
+  for (const rpc of ["unknown", "cPZSdc-extra", "kv2t2d"]) {
     const source = JSON.stringify([["wrb.fr", rpc, "[0,0,{\"billing\":false}]"]]);
     assert.equal(core.transform(source, "batch").body, source);
   }
-  const source = JSON.stringify([...batch(), ...batch([])]);
+  const source = JSON.stringify([...batch(), ...batch(appFields("invalid"))]);
   assert.equal(core.transform(source, "batch").body, source, "later bad RPC rolls back earlier change");
+});
+
+test("known availability RPCs change only their status field, including protobuf defaults", () => {
+  for (const rpc of ["KV2T2d", "rThb8d", "cO7JOb", "md9xJf"]) {
+    for (const status of [0, 2, 4, null, false]) {
+      const fields = [status, false, { billing: false, credits: 0, age: false }, "日本語 🌏"];
+      const source = JSON.stringify([["wrb.fr", rpc, JSON.stringify(fields)]]);
+      const result = core.transform(source, "batch");
+      assert.equal(result.changed, true, rpc + " status " + status);
+      assert.deepEqual(JSON.parse(JSON.parse(result.body)[0][2]),
+        [typeof status === "boolean" ? true : 1, ...fields.slice(1)]);
+    }
+    const omitted = core.transform(JSON.stringify([["wrb.fr", rpc, "[]"]]), "batch");
+    assert.deepEqual(JSON.parse(JSON.parse(omitted.body)[0][2]), [1]);
+    for (const fields of ["not JSON", "null", "{}", '["0"]', '[-1]', '[1.5]']) {
+      const source = JSON.stringify([...batch(), ["wrb.fr", rpc, fields]]);
+      const result = core.transform(source, "batch");
+      assert.equal(result.body, source);
+      assert.equal(result.detail, "batch-fields");
+    }
+  }
+});
+
+test("omitted and null country defaults are materialized without adding or changing the age field", () => {
+  for (const fields of [[], ["existing"], Array(30).fill(null), appFields(null)]) {
+    const source = JSON.stringify(batch(fields));
+    const result = core.transform(source, "batch");
+    const modified = JSON.parse(JSON.parse(result.body)[0][2]);
+    assert.equal(modified[30], 1);
+    assert.deepEqual(modified.slice(0, fields.length < 30 ? fields.length : 30), fields.slice(0, 30));
+    assert.equal(modified.length, Math.max(31, fields.length));
+    if (fields.length <= 31) assert.equal(Object.hasOwn(modified, 31), false);
+    else assert.deepEqual(modified.slice(31), fields.slice(31));
+  }
+});
+
+test("JSON handles protobuf-like country values and explicit country rejection states", () => {
+  for (const country of [false, 0, null]) {
+    const source = { isCountrySupported: country, isAgeSupported: false, billing: false, credits: 0 };
+    const modified = JSON.parse(core.transform(JSON.stringify(source), "json").body);
+    assert.deepEqual(modified, { ...source, isCountrySupported: country === 0 ? 1 : true });
+  }
+  for (const state of ["COUNTRY_UNAVAILABLE", "UNSUPPORTED_COUNTRY", "UNAVAILABLE_IN_REGION"]) {
+    const source = { availabilityState: state, isAgeSupported: false, plan: "NONE" };
+    assert.deepEqual(JSON.parse(core.transform(JSON.stringify(source), "json").body),
+      { ...source, availabilityState: "AVAILABLE" });
+  }
+  for (const state of ["UNAVAILABLE", "AGE_RESTRICTED", "PAYMENT_REQUIRED", "QUOTA_EXCEEDED", "NEW_UNKNOWN_STATE"]) {
+    const source = JSON.stringify({ availabilityState: state });
+    assert.equal(core.transform(source, "json").body, source);
+  }
+});
+
+test("framed batches support every known availability RPC together and retain unrelated rows", () => {
+  const rows = [...batch([]), ...["KV2T2d", "rThb8d", "cO7JOb", "md9xJf"].map(rpc =>
+    ["wrb.fr", rpc, JSON.stringify([2, { age: false, plan: "NONE" }])]), ["wrb.fr", "unknown", "[0]"]];
+  const source = ")]}'\n\n" + frame(rows);
+  const result = core.transform(source, "batch");
+  assert.equal(result.count, 5);
+  const decoded = unframe(result.body)[0];
+  assert.deepEqual(decoded.at(-1), rows.at(-1));
+  assert.equal(JSON.parse(decoded[0][2])[30], 1);
+  for (const row of decoded.slice(1, -1)) assert.deepEqual(JSON.parse(row[2]), [1, { age: false, plan: "NONE" }]);
 });
 
 test("Flow config can change existing country field 30 when trailing age field is omitted", () => {
@@ -225,12 +288,12 @@ function makeWindow(fetchFunction) {
   return win;
 }
 
-function connectNativeConfig(win) {
+function connectNativeConfig(win, sent = []) {
   let nativeMessage;
   win.top = win;
   win.wrappedJSObject = win;
   const port = {
-    postMessage() {},
+    postMessage(message) { sent.push(message); },
     onMessage: { addListener: fn => { nativeMessage = fn; } },
     onDisconnect: { addListener() {} }
   };
@@ -244,6 +307,45 @@ function connectNativeConfig(win) {
   });
   return enabled => nativeMessage({ type: "config", enabled });
 }
+
+test("fetch rewrites a complete framed availability response and reports bounded parse failures", async () => {
+  for (const malformed of [false, true]) {
+    const source = ")]}'\n\n" + (malformed ? "40\n[]" : frame([["wrb.fr", "KV2T2d", "[2,false]"]]));
+    const original = makeResponse(source, BATCH, { "content-type": "application/json" });
+    const win = makeWindow(async () => original);
+    win.location = { origin: "https://flow.google.com", href: "https://flow.google.com/", pathname: "/" };
+    const diagnostics = [];
+    install(win, core, { readConfig: () => ({ known: true, enabled: true, revision: 1 }), notify: (...args) => diagnostics.push(args) });
+    const result = await win.fetch(BATCH);
+    if (malformed) {
+      assert.equal(result, original);
+      assert.deepEqual(diagnostics, [["schema-mismatch", 1, "batch-framing"]]);
+    } else {
+      assert.deepEqual(JSON.parse(unframe(await result.text())[0][0][2]), [1, false]);
+      assert.deepEqual(diagnostics, [["patched", 1]]);
+    }
+    assert.equal(original.bodyUsed, false);
+    assert.equal(await original.text(), source);
+  }
+});
+
+test("bridge exports only fixed diagnostic reason codes, never arbitrary page text", () => {
+  const win = makeWindow();
+  const sent = [];
+  const nativeConfig = connectNativeConfig(win, sent);
+  nativeConfig(true);
+  nativeConfig(true);
+  assert.equal(sent.filter(message => message.event === "config-enabled").length, 1);
+  for (const detail of ["batch-fields", "https://private.example/?token=secret", { body: "private" }]) {
+    win.dispatchEvent(new CustomEvent("abypass:diagnostic", { detail: JSON.stringify({ event: "schema-mismatch", count: 1, detail }) }));
+  }
+  const events = sent.filter(message => message.event === "schema-mismatch");
+  assert.equal(events.length, 3);
+  assert.equal(events[0].detail, "batch-fields");
+  assert.equal(Object.hasOwn(events[1], "detail"), false);
+  assert.equal(Object.hasOwn(events[2], "detail"), false);
+  assert.equal(JSON.stringify(sent).includes("private"), false);
+});
 
 test("fetch preserves request arguments, original body, response metadata, headers and clone behavior", async () => {
   const original = makeResponse('{"isCountrySupported":false,"isAgeSupported":false}', API, {
@@ -570,3 +672,4 @@ test("manifest isolates privileged messaging and only declares the two supported
   assert.equal(manifest.content_scripts.find(script => script.world === "ISOLATED").js[0], "bridge.js");
   assert.deepEqual(manifest.content_scripts.find(script => script.world === "MAIN").js, ["core.js", "runtime.js"]);
 });
+

@@ -196,8 +196,21 @@ class BrowserEngine(
                             if (data.optString("type") != "diagnostic") return
                             when (data.optString("event")) {
                                 "ready" -> onEvent(currentAdapterId, "Адаптер готов к проверке региональной совместимости.", false)
+                                "config-enabled" -> onEvent(currentAdapterId, "Режим совместимости включён в текущей странице.", false)
+                                "config-disabled" -> onEvent(currentAdapterId, "Режим совместимости выключен в текущей странице.", false)
                                 "patched" -> onEvent(currentAdapterId, "Применена региональная коррекция. Это не подтверждает работу сервиса.", true)
-                                "schema-mismatch" -> onEvent(currentAdapterId, "Формат ответа не распознан; ответ оставлен без изменений.", false)
+                                "schema-mismatch" -> {
+                                    val reason = when (data.optString("detail")) {
+                                        "country-field-type" -> "тип географического поля"
+                                        "json-format" -> "JSON или предел вложенности"
+                                        "batch-fields" -> "поля RPC"
+                                        "batch-framing" -> "длина или формат кадров RPC"
+                                        "size-limit" -> "предел размера ответа"
+                                        "response-read" -> "чтение копии ответа"
+                                        else -> "неизвестная схема"
+                                    }
+                                    onEvent(currentAdapterId, "Ответ оставлен без изменений: $reason.", false)
+                                }
                                 "region-page" -> onEvent(currentAdapterId, "Сервис показал региональное ограничение.", false)
                             }
                         }
@@ -278,3 +291,4 @@ class BrowserEngine(
     }
 
 }
+

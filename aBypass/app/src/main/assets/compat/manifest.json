@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "aBypass regional compatibility",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Local, opt-in regional compatibility for Flow and Google Labs.",
   "browser_specific_settings": {
     "gecko": {
@@ -32,3 +32,4 @@
     }
   ]
 }
+

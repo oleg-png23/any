@@ -13,7 +13,10 @@
   const parse = JSON.parse;
   const stringify = JSON.stringify;
   const countryKeys = new Set(["isCountrySupported", "is_country_supported"]);
-  const mixedEligibilityRpcs = new Set(["KV2T2d", "rThb8d", "cO7JOb", "md9xJf"]);
+  const availabilityRpcs = new Set(["KV2T2d", "rThb8d", "cO7JOb", "md9xJf"]);
+  const countryStates = new Set(["COUNTRY_UNAVAILABLE", "UNSUPPORTED_COUNTRY", "COUNTRY_NOT_SUPPORTED",
+    "REGION_UNAVAILABLE", "UNSUPPORTED_REGION", "REGION_NOT_SUPPORTED",
+    "UNAVAILABLE_IN_COUNTRY", "UNAVAILABLE_IN_REGION"]);
 
   function allowedOrigin(origin) {
     return origins.has(origin);
@@ -42,8 +45,8 @@
     return null;
   }
 
-  function unchanged(body, reason = "untouched") {
-    return { changed: false, body, reason, count: 0 };
+  function unchanged(body, reason = "untouched", detail) {
+    return { changed: false, body, reason, count: 0, ...(detail ? { detail } : {}) };
   }
 
   function patchCountryFlags(value) {
@@ -55,10 +58,13 @@
       if (++nodes > 20000 || depth > 64) throw new Error("bounded schema");
       for (const key of Object.keys(node)) {
         if (!Array.isArray(node) && countryKeys.has(key)) {
-          if (node[key] === false) {
-            node[key] = true;
+          if (node[key] === false || node[key] === 0 || node[key] === null) {
+            node[key] = typeof node[key] === "number" ? 1 : true;
             count++;
-          } else if (node[key] !== true) mismatch = true;
+          } else if (node[key] !== true && node[key] !== 1) mismatch = true;
+        } else if (!Array.isArray(node) && key === "availabilityState" && countryStates.has(node[key])) {
+          node[key] = "AVAILABLE";
+          count++;
         } else visit(node[key], depth + 1);
       }
     }
@@ -71,36 +77,39 @@
       const value = parse(body);
       if (!value || typeof value !== "object") return unchanged(body);
       const result = patchCountryFlags(value);
-      if (result.mismatch) return unchanged(body, "schema-mismatch");
+      if (result.mismatch) return unchanged(body, "schema-mismatch", "country-field-type");
       if (!result.count) return unchanged(body);
       return { changed: true, body: stringify(value), reason: "patched", count: result.count };
-    } catch (_) { return unchanged(body, "schema-mismatch"); }
+    } catch (_) { return unchanged(body, "schema-mismatch", "json-format"); }
   }
 
   function patchBatch(batch) {
     if (!Array.isArray(batch)) throw new Error("batch is not an array");
     let count = 0;
-    let unknownEligibility = false;
     for (const row of batch) {
       if (!Array.isArray(row) || row[0] !== "wrb.fr") continue;
-      if (mixedEligibilityRpcs.has(row[1])) unknownEligibility = true;
-      if (row[1] !== "cPZSdc") continue;
+      if (row[1] !== "cPZSdc" && !availabilityRpcs.has(row[1])) continue;
       if (typeof row[2] !== "string") throw new Error("unexpected RPC payload");
       const fields = parse(row[2]);
-      // Field 31 is the observed country flag. Never create missing fields,
-      // rewrite field 32 (age), or reinterpret a general eligibility enum.
-      if (!Array.isArray(fields) || fields.length < 31 ||
-          !Object.prototype.hasOwnProperty.call(fields, 30) ||
-          ![0, 1, false, true].includes(fields[30])) {
-        throw new Error("unknown Flow app configuration");
+      if (!Array.isArray(fields)) throw new Error("unknown RPC array");
+      // Protobuf JSON omits trailing default fields and uses null for defaults.
+      // Only the known RPC's country/status position may be materialized.
+      const index = row[1] === "cPZSdc" ? 30 : 0;
+      const value = fields[index];
+      const knownType = index === 30 ? [null, 0, 1, false, true].includes(value) :
+        value === null || typeof value === "boolean" ||
+        (Number.isSafeInteger(value) && value >= 0 && value <= 2147483647);
+      if (value !== undefined && !knownType) {
+        throw new Error("unknown availability field");
       }
-      if (fields[30] === 0 || fields[30] === false) {
-        fields[30] = typeof fields[30] === "boolean" ? true : 1;
+      if (value !== 1 && value !== true) {
+        while (fields.length <= index) fields.push(null);
+        fields[index] = typeof value === "boolean" ? true : 1;
         row[2] = stringify(fields);
         count++;
       }
     }
-    return { count, unknownEligibility };
+    return { count };
   }
 
   function prefixLength(body) {
@@ -156,9 +165,9 @@
       try {
         const batch = parse(content);
         const result = patchBatch(batch);
-        if (!result.count) return unchanged(body, result.unknownEligibility ? "schema-mismatch" : "untouched");
+        if (!result.count) return unchanged(body);
         return { changed: true, body: prefix + stringify(batch), reason: "patched", count: result.count };
-      } catch (_) { return unchanged(body, "schema-mismatch"); }
+      } catch (_) { return unchanged(body, "schema-mismatch", "batch-fields"); }
     }
     const bytes = encoder.encode(body);
     let parsed;
@@ -171,31 +180,29 @@
       catch (_) {
         utf16 = true;
         try { parsed = parseFrames(body, offset, true, true); }
-        catch (_) { return unchanged(body, "schema-mismatch"); }
+        catch (_) { return unchanged(body, "schema-mismatch", "batch-framing"); }
       }
     }
     try {
       let count = 0;
-      let unknownEligibility = false;
       const output = [];
       for (const frame of parsed.frames) {
         const result = patchBatch(frame.value);
         count += result.count;
-        unknownEligibility ||= result.unknownEligibility;
         if (result.count) {
           const text = stringify(frame.value);
           const length = utf16 ? text.length : encoder.encode(text).length;
           output.push(frame.leading + (length + (inclusiveLf ? 1 : 0)) + "\n" + text);
         } else output.push(frame.leading + frame.original);
       }
-      if (!count) return unchanged(body, unknownEligibility ? "schema-mismatch" : "untouched");
+      if (!count) return unchanged(body);
       return { changed: true, body: prefix + output.join("") + parsed.tail, reason: "patched", count };
-    } catch (_) { return unchanged(body, "schema-mismatch"); }
+    } catch (_) { return unchanged(body, "schema-mismatch", "batch-fields"); }
   }
 
   function transform(body, kind) {
     if (typeof body !== "string" || encoder.encode(body).length > MAX_BYTES) {
-      return unchanged(body, "schema-mismatch");
+      return unchanged(body, "schema-mismatch", "size-limit");
     }
     if (kind === "json") return transformJson(body);
     if (kind === "batch") return transformBatch(body);
@@ -204,3 +211,4 @@
 
   return { MAX_BYTES, allowedOrigin, classifyRequest, transform };
 });
+

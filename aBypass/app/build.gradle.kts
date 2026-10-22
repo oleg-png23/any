@@ -10,8 +10,8 @@ android {
         applicationId = "app.abypass"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += (project.findProperty("abypassAbis") as String? ?: "arm64-v8a").split(",") }
     }
@@ -49,3 +49,4 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
