@@ -45,19 +45,26 @@ another endpoint, iframe, or AI Studio is excluded.
 JSON transforms only existing Boolean `isCountrySupported` /
 `is_country_supported` flags. `availabilityState`, age, plan, billing, credits,
 quotas and all other fields are untouched. An unknown type for a geographic flag
-rejects the whole response. Batchexecute supports only existing 32+-field
+rejects the whole response. Batchexecute supports only existing 31+-field
 `cPZSdc` arrays with country field index 30 holding Boolean or 0/1. It preserves
 age index 31 and never pads arrays. Other observed RPCs return mixed eligibility;
 they are intentionally passed through because a general availability override
 could also override age, subscription or payment checks.
 
 Parsing is bounded to 1 MiB, with recursion/node limits. Length-delimited batches
-use UTF-8 byte lengths, preserve their framing convention, and reject an entire
-response if any frame or target payload is malformed. Unmodified and rejected
+first try consistent UTF-8 byte lengths, then UTF-16
+code-unit counts including the leading LF. A mode is accepted only after the
+whole response parses consistently; modes cannot be mixed between frames. The
+original length convention is preserved on rewrite, and any malformed frame or
+target payload rejects the entire response. Unmodified and rejected
 responses preserve the original bytes. Fetch reads only a clone and returns the
 original response on failure, disable, or redirect; request bodies and errors
-are untouched. XHR checks its final `responseURL`. A disable/re-enable cycle also
-invalidates in-flight responses. Manual logout is never intercepted.
+are untouched. XHR checks its final `responseURL`. Requests sent before the first
+native config can adopt only an initial enabled answer at revision 1. A first
+disabled answer or any disable/re-enable cycle invalidates older requests.
+Fetch waits at most 800 ms for initial config, then sends normally; a later
+initial enabled answer may still authorize its response before transformation.
+Manual logout is never intercepted.
 
 Flow's `/unsupported-country` can return to `/` at most once in five minutes per
 tab, only while enabled. If sessionStorage is unavailable, no redirect is tried.

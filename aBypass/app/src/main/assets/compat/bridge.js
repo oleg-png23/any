@@ -19,6 +19,9 @@
   }
 
   function updateConfig(enabled, known) {
+    // Native can repeat the same preference on SPA URL changes and settings
+    // refreshes. Those notifications must not invalidate active requests.
+    if (config.known === known && config.enabled === enabled) return;
     config = { known, enabled, revision: config.revision + 1 };
     window.dispatchEvent(new Event(CONFIG_EVENT));
   }

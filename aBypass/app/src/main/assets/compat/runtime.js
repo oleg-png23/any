@@ -34,6 +34,22 @@
     return now.enabled === true && now.revision === revision;
   }
 
+  function requestRevision(initial) {
+    const now = readConfig();
+    if (initial.known === true) {
+      return initial.enabled === true && now.enabled === true &&
+        now.revision === initial.revision ? initial.revision : null;
+    }
+    // A request sent during native IPC startup may adopt only the first
+    // authoritative answer. A first false, disconnect, or disable/re-enable
+    // cycle cannot retroactively authorize an older request.
+    return now.known === true && now.enabled === true && now.revision === 1 ? 1 : null;
+  }
+
+  function firstConfigStillPending(initial) {
+    return initial.known !== true && readConfig().known !== true;
+  }
+
   function waitForInitialConfig() {
     if (readConfig().known || typeof win.addEventListener !== "function") return Promise.resolve();
     return new Promise(resolve => {
@@ -113,7 +129,8 @@
       const config = readConfig();
       // Native errors, aborts, request bodies and the caller's init are untouched.
       const response = await originalFetch.apply(this, args);
-      if (!config.enabled || !unchangedRevision(config.revision) ||
+      let revision = requestRevision(config);
+      if ((revision === null && !firstConfigStillPending(config)) ||
           !finalTarget(response.url, target) || !response.ok ||
           [204, 205].includes(response.status) || response.type === "opaque" ||
           response.type === "opaqueredirect") return response;
@@ -123,15 +140,16 @@
           (Number.isFinite(contentLength) && contentLength > core.MAX_BYTES)) return response;
       try {
         const body = await readLimitedText(response);
-        if (body === null || !unchangedRevision(config.revision)) return response;
+        revision = requestRevision(config);
+        if (body === null || revision === null) return response;
         const result = core.transform(body, target.kind);
-        if (!unchangedRevision(config.revision)) return response;
+        if (!unchangedRevision(revision)) return response;
         if (!result.changed) {
           if (result.reason === "schema-mismatch") notify("schema-mismatch", 1);
           return response;
         }
         const replacement = replacementResponse(result.body, response);
-        if (!unchangedRevision(config.revision)) return response;
+        if (!unchangedRevision(revision)) return response;
         notify("patched", result.count);
         return replacement;
       } catch (_) {
@@ -154,25 +172,26 @@
         textDescriptor.configurable && responseDescriptor.configurable) {
       proto.open = function (...args) {
         const result = originalOpen.apply(this, args);
-        requests.set(this, { target: core.classifyRequest(args[1], win.location.href), revision: null, cache: null });
+        requests.set(this, { target: core.classifyRequest(args[1], win.location.href), config: null, cache: null });
         return result;
       };
       proto.send = function (...args) {
         const state = requests.get(this);
-        const config = readConfig();
-        if (state) state.revision = config.enabled === true ? config.revision : null;
+        if (state) state.config = readConfig();
         return originalSend.apply(this, args);
       };
       function transformed(xhr, raw, isJson) {
         const state = requests.get(xhr);
-        if (!state || !state.target || state.revision === null ||
+        if (!state || !state.target || !state.config ||
             xhr.readyState !== 4 || xhr.status < 200 || xhr.status >= 300 ||
-            !finalTarget(xhr.responseURL, state.target) || !unchangedRevision(state.revision)) return raw;
+            !finalTarget(xhr.responseURL, state.target)) return raw;
+        const revision = requestRevision(state.config);
+        if (revision === null) return raw;
         if (state.cache && state.cache.raw === raw) return state.cache.value;
         try {
           const body = isJson ? nativeJson.stringify(raw) : raw;
           const result = core.transform(body, state.target.kind);
-          if (!unchangedRevision(state.revision)) return raw;
+          if (!unchangedRevision(revision)) return raw;
           const value = result.changed && isJson ? nativeJson.parse(result.body) : result.changed ? result.body : raw;
           state.cache = { raw, value };
           if (result.changed) notify("patched", result.count);

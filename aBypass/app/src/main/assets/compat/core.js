@@ -89,7 +89,8 @@
       const fields = parse(row[2]);
       // Field 31 is the observed country flag. Never create missing fields,
       // rewrite field 32 (age), or reinterpret a general eligibility enum.
-      if (!Array.isArray(fields) || fields.length < 32 ||
+      if (!Array.isArray(fields) || fields.length < 31 ||
+          !Object.prototype.hasOwnProperty.call(fields, 30) ||
           ![0, 1, false, true].includes(fields[30])) {
         throw new Error("unknown Flow app configuration");
       }
@@ -108,28 +109,30 @@
     return 0;
   }
 
-  // Google deployments use length-delimited batches. Read UTF-8 byte lengths,
-  // retaining the original framing convention and all untouched frame bytes.
-  // Both payload-only and legacy leading-LF-inclusive counts are recognized.
-  function parseFrames(bytes, offset, inclusiveLf) {
+  // Parse one consistent length convention across the complete response. The
+  // alternate format accepts UTF-16 code-unit counts including the leading
+  // LF; try that only after complete UTF-8 parses fail, never frame by frame.
+  function parseFrames(source, offset, inclusiveLf, utf16 = false) {
+    const codeAt = index => utf16 ? source.charCodeAt(index) : source[index];
+    const textAt = (start, end) => utf16 ? source.slice(start, end) : decoder.decode(source.slice(start, end));
     const frames = [];
     let pos = offset;
-    while (pos < bytes.length) {
+    while (pos < source.length) {
       const segmentStart = pos;
-      while (pos < bytes.length && [9, 10, 13, 32].includes(bytes[pos])) pos++;
-      if (pos === bytes.length) {
-        return { frames, tail: decoder.decode(bytes.slice(segmentStart)) };
+      while (pos < source.length && [9, 10, 13, 32].includes(codeAt(pos))) pos++;
+      if (pos === source.length) {
+        return { frames, tail: textAt(segmentStart) };
       }
       const headerStart = pos;
-      while (pos < bytes.length && bytes[pos] >= 48 && bytes[pos] <= 57) pos++;
-      const digits = decoder.decode(bytes.slice(headerStart, pos));
-      if (!/^[1-9][0-9]{0,6}$/.test(digits) || bytes[pos] !== 10) throw new Error("bad frame header");
+      while (pos < source.length && codeAt(pos) >= 48 && codeAt(pos) <= 57) pos++;
+      const digits = textAt(headerStart, pos);
+      if (!/^[1-9][0-9]{0,6}$/.test(digits) || codeAt(pos) !== 10) throw new Error("bad frame header");
       const declared = Number(digits);
       const length = declared - (inclusiveLf ? 1 : 0);
       const start = pos + 1;
       const end = start + length;
-      if (length <= 0 || declared > MAX_BYTES || end > bytes.length) throw new Error("truncated frame");
-      const text = decoder.decode(bytes.slice(start, end));
+      if (length <= 0 || declared > MAX_BYTES || end > source.length) throw new Error("truncated frame");
+      const text = textAt(start, end);
       // Do not let a counted separator LF make two different framing modes
       // look valid. Unknown padded payloads are passed through conservatively.
       if (!text.startsWith("[") || !text.endsWith("]")) throw new Error("ambiguous frame padding");
@@ -137,8 +140,8 @@
       if (!Array.isArray(value)) throw new Error("unknown frame schema");
       frames.push({
         value,
-        leading: decoder.decode(bytes.slice(segmentStart, headerStart)),
-        original: decoder.decode(bytes.slice(headerStart, end))
+        leading: textAt(segmentStart, headerStart),
+        original: textAt(headerStart, end)
       });
       pos = end;
     }
@@ -160,11 +163,16 @@
     const bytes = encoder.encode(body);
     let parsed;
     let inclusiveLf = false;
+    let utf16 = false;
     try { parsed = parseFrames(bytes, offset, false); }
     catch (_) {
       inclusiveLf = true;
       try { parsed = parseFrames(bytes, offset, true); }
-      catch (_) { return unchanged(body, "schema-mismatch"); }
+      catch (_) {
+        utf16 = true;
+        try { parsed = parseFrames(body, offset, true, true); }
+        catch (_) { return unchanged(body, "schema-mismatch"); }
+      }
     }
     try {
       let count = 0;
@@ -176,7 +184,8 @@
         unknownEligibility ||= result.unknownEligibility;
         if (result.count) {
           const text = stringify(frame.value);
-          output.push(frame.leading + (encoder.encode(text).length + (inclusiveLf ? 1 : 0)) + "\n" + text);
+          const length = utf16 ? text.length : encoder.encode(text).length;
+          output.push(frame.leading + (length + (inclusiveLf ? 1 : 0)) + "\n" + text);
         } else output.push(frame.leading + frame.original);
       }
       if (!count) return unchanged(body, unknownEligibility ? "schema-mismatch" : "untouched");

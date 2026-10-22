@@ -46,6 +46,7 @@ class BrowserEngine(
     private val openers = mutableMapOf<GeckoSession, GeckoSession>()
     private val snapshots = mutableMapOf<GeckoSession, BrowserUiState>()
     private val ports = mutableMapOf<WebExtension.Port, String>()
+    private val sentConfigs = mutableMapOf<WebExtension.Port, Boolean>()
     private var extension: WebExtension? = null
     private var loadingExtension = false
     private var pending: ServiceDefinition? = null
@@ -187,7 +188,7 @@ class BrowserEngine(
                     val adapterId = UrlRules.adapterService(sender.url).orEmpty()
                     ports[port] = adapterId
                     port.setDelegate(object : WebExtension.PortDelegate {
-                        override fun onDisconnect(port: WebExtension.Port) { ports.remove(port) }
+                        override fun onDisconnect(port: WebExtension.Port) { ports.remove(port); sentConfigs.remove(port) }
                         override fun onPortMessage(message: Any, port: WebExtension.Port) {
                             if (session !in owners) return
                             val currentAdapterId = ports[port]?.takeIf { it.isNotEmpty() } ?: return
@@ -222,7 +223,7 @@ class BrowserEngine(
 
     private fun closePopup(session: GeckoSession) {
         val opener = openers.remove(session) ?: return
-        ports.keys.filter { it.sender.session === session }.toList().forEach { ports.remove(it); it.disconnect() }
+        ports.keys.filter { it.sender.session === session }.toList().forEach { ports.remove(it); sentConfigs.remove(it); it.disconnect() }
         session.close()
         owners.remove(session)
         snapshots.remove(session)
@@ -249,7 +250,10 @@ class BrowserEngine(
         ports.forEach { (port, id) -> sendConfig(port, id) }
     }
     private fun sendConfig(port: WebExtension.Port, id: String) {
-        port.postMessage(JSONObject().put("type", "config").put("enabled", id in settings().adapters))
+        val enabled = id in settings().adapters
+        if (sentConfigs[port] == enabled) return
+        port.postMessage(JSONObject().put("type", "config").put("enabled", enabled))
+        sentConfigs[port] = enabled
     }
 
     fun closeAll() {
@@ -257,6 +261,7 @@ class BrowserEngine(
         pending = null
         ports.keys.toList().forEach { it.disconnect() }
         ports.clear()
+        sentConfigs.clear()
         owners.keys.toList().forEach { if (it.isOpen) it.close() }
         sessions.clear(); owners.clear(); openers.clear(); snapshots.clear(); needsReload.clear()
         activeSession = null

@@ -109,7 +109,7 @@ test("Flow config changes country field 30 and retains age, plan, credit and unk
 });
 
 test("general eligibility RPCs are not rewritten and short or unknown schemas are not padded", () => {
-  for (const fields of [[], Array(31).fill(0), appFields(null), appFields("0")]) {
+  for (const fields of [[], Array(30).fill(0), appFields(null), appFields("0")]) {
     const source = " \n" + JSON.stringify(batch(fields));
     assert.equal(core.transform(source, "batch").body, source);
   }
@@ -119,6 +119,19 @@ test("general eligibility RPCs are not rewritten and short or unknown schemas ar
   }
   const source = JSON.stringify([...batch(), ...batch([])]);
   assert.equal(core.transform(source, "batch").body, source, "later bad RPC rolls back earlier change");
+});
+
+test("Flow config can change existing country field 30 when trailing age field is omitted", () => {
+  for (const country of [0, false]) {
+    const fields = appFields(country).slice(0, 31);
+    const result = core.transform(JSON.stringify(batch(fields)), "batch");
+    assert.equal(result.changed, true);
+    const modified = JSON.parse(JSON.parse(result.body)[0][2]);
+    assert.equal(modified.length, 31);
+    assert.equal(Object.hasOwn(modified, 31), false, "never create the omitted age field");
+    assert.equal(modified[30], typeof country === "boolean" ? true : 1);
+    assert.deepEqual(modified.slice(0, 30), fields.slice(0, 30));
+  }
 });
 
 test("Google stream lengths use UTF-8 bytes across frames, retaining both framing conventions", () => {
@@ -148,6 +161,43 @@ test("corrupt frame lengths, incomplete UTF-8 and later malformed chunks pass th
   ]) assert.equal(core.transform(source, "batch").body, source);
 });
 
+test("UTF-16 framing preserves Unicode and code-unit lengths across every frame", () => {
+  const unchangedFrame = [["wrb.fr", "unknown", JSON.stringify(["日本語 🌏", { age: false }])]];
+  const utf16Frame = value => {
+    const text = JSON.stringify(value);
+    return (text.length + 1) + "\n" + text;
+  };
+  const source = ")]}'\n\n" + utf16Frame(batch()) + "\n" + utf16Frame(unchangedFrame) + "\n";
+  const result = core.transform(source, "batch");
+  assert.equal(result.changed, true);
+  let remaining = result.body.slice(6);
+  const decoded = [];
+  while (remaining.trim()) {
+    remaining = remaining.trimStart();
+    const newline = remaining.indexOf("\n");
+    const length = Number(remaining.slice(0, newline)) - 1;
+    const payload = remaining.slice(newline + 1, newline + 1 + length);
+    assert.equal(payload.length, length);
+    decoded.push(JSON.parse(payload));
+    remaining = remaining.slice(newline + 1 + length);
+  }
+  assert.equal(JSON.parse(decoded[0][0][2])[30], 1);
+  assert.equal(JSON.parse(decoded[0][0][2])[31], 0);
+  assert.deepEqual(decoded[1], unchangedFrame);
+  assert.equal(result.body.endsWith("\n"), true);
+
+  for (const malformed of [
+    source.slice(0, -2),
+    source + "17\n[]",
+    ")]}'\n\n" + utf16Frame(batch()) + "\n" + frame(unchangedFrame, true),
+    ")]}'\n\n" + frame(batch(), true) + "\n" + utf16Frame(unchangedFrame)
+  ]) {
+    const rejected = core.transform(malformed, "batch");
+    assert.equal(rejected.changed, false);
+    assert.equal(rejected.body, malformed, "unknown/mixed/truncated framing never partially changes a response");
+  }
+});
+
 function makeResponse(body, url = API, headers = { "content-type": "application/json" }) {
   const response = new Response(body, { status: 200, statusText: "Fine", headers });
   Object.defineProperty(response, "url", { value: url });
@@ -173,6 +223,26 @@ function makeWindow(fetchFunction) {
   win.sessionStorage = { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) };
   win.history = { pushState() {}, replaceState() {} };
   return win;
+}
+
+function connectNativeConfig(win) {
+  let nativeMessage;
+  win.top = win;
+  win.wrappedJSObject = win;
+  const port = {
+    postMessage() {},
+    onMessage: { addListener: fn => { nativeMessage = fn; } },
+    onDisconnect: { addListener() {} }
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(root, "bridge.js"), "utf8"), {
+    window: win,
+    location: win.location,
+    exportFunction: fn => fn,
+    browser: { runtime: { connectNative: () => port } },
+    Event,
+    JSON
+  });
+  return enabled => nativeMessage({ type: "config", enabled });
 }
 
 test("fetch preserves request arguments, original body, response metadata, headers and clone behavior", async () => {
@@ -366,6 +436,126 @@ test("isolated native bridge defaults disabled and DOM events cannot grant enabl
     message.count ? ["count", "event", "type"] : ["event", "type"]);
   disconnected();
   assert.equal(JSON.parse(win.__abypassReadConfig()).enabled, false);
+});
+
+test("real native config deduplicates identical updates without invalidating in-flight fetch/XHR", async () => {
+  for (const mode of ["identical", "disable", "disable-reenable"]) {
+    let nativeMessage;
+    let resolveResponse;
+    const original = makeResponse('{"isCountrySupported":false,"isAgeSupported":false}');
+    const win = makeWindow(() => new Promise(resolve => { resolveResponse = resolve; }));
+    win.XMLHttpRequest = fakeXhrClass();
+    win.top = win;
+    win.wrappedJSObject = win;
+    const port = {
+      postMessage() {},
+      onMessage: { addListener: fn => { nativeMessage = fn; } },
+      onDisconnect: { addListener() {} }
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(root, "bridge.js"), "utf8"), {
+      window: win,
+      location: win.location,
+      exportFunction: fn => fn,
+      browser: { runtime: { connectNative: () => port } },
+      Event,
+      JSON
+    });
+    let configEvents = 0;
+    win.addEventListener("abypass:config-changed", () => { configEvents++; });
+    nativeMessage({ type: "config", enabled: true });
+    const revision = JSON.parse(win.__abypassReadConfig()).revision;
+    assert.equal(configEvents, 1, "first native answer publishes known state");
+    install(win, core);
+    const xhr = new win.XMLHttpRequest();
+    xhr.open("GET", API);
+    xhr.send();
+    const pending = win.fetch(API);
+    await new Promise(setImmediate);
+
+    nativeMessage({ type: "config", enabled: true });
+    nativeMessage({ type: "config", enabled: true });
+    assert.equal(JSON.parse(win.__abypassReadConfig()).revision, revision);
+    assert.equal(configEvents, 1, "identical native answers emit no new event");
+    if (mode !== "identical") nativeMessage({ type: "config", enabled: false });
+    if (mode === "disable-reenable") nativeMessage({ type: "config", enabled: true });
+
+    xhr.complete('{"isCountrySupported":false,"isAgeSupported":false}');
+    resolveResponse(original);
+    const response = await pending;
+    const shouldPatch = mode === "identical";
+    assert.equal(JSON.parse(xhr.responseText).isCountrySupported, shouldPatch, mode + " XHR");
+    assert.equal((await response.json()).isCountrySupported, shouldPatch, mode + " fetch");
+    assert.equal(JSON.parse(xhr.responseText).isAgeSupported, false);
+    if (shouldPatch) {
+      assert.notEqual(response, original);
+      assert.equal(original.bodyUsed, false);
+    } else {
+      assert.equal(response, original);
+      assert.ok(JSON.parse(win.__abypassReadConfig()).revision > revision);
+    }
+  }
+});
+
+test("early XHR and fetch after initial timeout may adopt only the first native enabled answer", async () => {
+  for (const mode of ["first-enabled", "first-disabled", "disable-reenable", "never-known"]) {
+    let resolveResponse;
+    let markFetchStarted;
+    const fetchStarted = new Promise(resolve => { markFetchStarted = resolve; });
+    const original = makeResponse('{"isCountrySupported":false,"isAgeSupported":false}');
+    const win = makeWindow(() => {
+      markFetchStarted();
+      return new Promise(resolve => { resolveResponse = resolve; });
+    });
+    // Exercise the actual 800 ms timeout branch without adding wall time.
+    win.setTimeout = (callback, milliseconds) => {
+      assert.equal(milliseconds, 800);
+      return setTimeout(callback, 0);
+    };
+    win.XMLHttpRequest = fakeXhrClass();
+    const nativeConfig = connectNativeConfig(win);
+    install(win, core);
+    const xhr = new win.XMLHttpRequest();
+    xhr.open("GET", API);
+    xhr.send();
+    const pending = win.fetch(API);
+    await fetchStarted;
+    assert.equal(JSON.parse(win.__abypassReadConfig()).known, false, "network proceeds after timeout");
+    win.dispatchEvent(new CustomEvent("abypass:config-changed", { detail: JSON.stringify({ enabled: true }) }));
+    assert.equal(JSON.parse(win.__abypassReadConfig()).enabled, false, "DOM events never authorize a response");
+    if (mode === "first-enabled") nativeConfig(true);
+    else if (mode === "first-disabled") { nativeConfig(false); nativeConfig(true); }
+    else if (mode === "disable-reenable") { nativeConfig(true); nativeConfig(false); nativeConfig(true); }
+    xhr.complete('{"isCountrySupported":false,"isAgeSupported":false}');
+    resolveResponse(original);
+    const response = await pending;
+    const shouldPatch = mode === "first-enabled";
+    assert.equal(JSON.parse(xhr.responseText).isCountrySupported, shouldPatch, mode + " XHR");
+    assert.equal((await response.json()).isCountrySupported, shouldPatch, mode + " fetch");
+    assert.equal(JSON.parse(xhr.responseText).isAgeSupported, false);
+    assert.equal(response === original, !shouldPatch);
+  }
+});
+
+test("first native enabled answer may arrive while a post-timeout response clone is being read", async () => {
+  let controller;
+  let markFetchStarted;
+  const fetchStarted = new Promise(resolve => { markFetchStarted = resolve; });
+  const stream = new ReadableStream({ start(value) { controller = value; } });
+  const original = makeResponse(stream);
+  const win = makeWindow(async () => { markFetchStarted(); return original; });
+  win.setTimeout = callback => setTimeout(callback, 0);
+  const nativeConfig = connectNativeConfig(win);
+  install(win, core);
+  const pending = win.fetch(API);
+  await fetchStarted;
+  controller.enqueue(new TextEncoder().encode('{"isCountry'));
+  await new Promise(setImmediate);
+  nativeConfig(true);
+  controller.enqueue(new TextEncoder().encode('Supported":false,"isAgeSupported":false}'));
+  controller.close();
+  const response = await pending;
+  assert.deepEqual(await response.json(), { isCountrySupported: true, isAgeSupported: false });
+  assert.equal(original.bodyUsed, false);
 });
 
 test("manifest isolates privileged messaging and only declares the two supported HTTPS hosts", () => {
