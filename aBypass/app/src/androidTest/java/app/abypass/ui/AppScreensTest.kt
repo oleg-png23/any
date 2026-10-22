@@ -5,6 +5,16 @@ import androidx.annotation.StringRes
 import androidx.compose.material3.Text
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -29,6 +39,7 @@ import app.abypass.data.AppSettings
 import app.abypass.data.BrowserUiState
 import app.abypass.data.ServiceDefinition
 import app.abypass.data.ThemeMode
+import app.abypass.data.Services
 import java.io.File
 import java.io.FileOutputStream
 import org.junit.Assert.assertEquals
@@ -152,15 +163,46 @@ class AppScreensTest {
         compose.runOnIdle { assertEquals(1, closeCalls) }
     }
 
+    @Test
+    fun serviceAvatarsStaySquareAndCenteredOnNarrowScreensWithLargeText() {
+        render(largeText = true)
+        for (service in Services.all) {
+            compose.onNode(hasScrollAction()).performScrollToNode(hasText(service.name))
+            val avatar = compose.onNodeWithTag("service-avatar-${service.id}", useUnmergedTree = true)
+            avatar.assertWidthIsEqualTo(52.dp).assertHeightIsEqualTo(52.dp)
+            val bounds = avatar.fetchSemanticsNode().boundsInRoot
+            val glyph = compose.onNodeWithTag("service-glyph-${service.id}", useUnmergedTree = true)
+                .fetchSemanticsNode().boundsInRoot
+            assertEquals("Icon must remain horizontally centered", bounds.center.x, glyph.center.x, 1f)
+            assertEquals("Icon must remain vertically centered", bounds.center.y, glyph.center.y, 1f)
+        }
+        compose.saveScreenshot("catalog-large-type")
+    }
+
+    @Test
+    fun wallpaperColorsRenderAndCanBeSwitchedBackToGooglePalette() {
+        val settings = render(initialSettings = AppSettings(theme = ThemeMode.LIGHT, dynamicColor = true))
+        compose.saveScreenshot("catalog-wallpaper")
+        navigateTo(R.string.nav_settings)
+        compose.onNodeWithText(text(R.string.dynamic_colors)).performScrollTo().performClick()
+        compose.runOnIdle { assertFalse(settings.value.dynamicColor) }
+        navigateTo(R.string.nav_services)
+        compose.saveScreenshot("catalog-google-palette")
+    }
+
     private fun render(
         initialSettings: AppSettings = AppSettings(theme = ThemeMode.LIGHT, dynamicColor = false),
         browser: BrowserUiState = BrowserUiState(),
         onOpenService: (ServiceDefinition) -> Unit = {},
         onClearData: () -> Unit = {},
         onCloseBrowser: () -> Unit = {},
+        largeText: Boolean = false,
     ): MutableState<AppSettings> {
         val settings = mutableStateOf(initialSettings)
         compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, if (largeText) 1.5f else density.fontScale)) {
+            Box(if (largeText) Modifier.width(320.dp) else Modifier) {
             ABypassTheme(settings.value) {
                 ABypassApp(
                     settings = settings.value,
@@ -180,6 +222,8 @@ class AppScreensTest {
                     onClearDiagnostics = {},
                     browserContent = { Text(FAKE_BROWSER_CONTENT) },
                 )
+            }
+            }
             }
         }
         compose.waitForIdle()
@@ -212,3 +256,4 @@ internal fun ComposeContentTestRule.saveScreenshot(name: String): File {
     }
     return file
 }
+

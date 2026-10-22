@@ -44,7 +44,7 @@
     <string name="theme_light">Светлая тема</string>
     <string name="theme_dark">Тёмная тема</string>
     <string name="dynamic_colors">Цвета обоев</string>
-    <string name="dynamic_colors_description">Палитра Material You подстраивается под устройство</string>
+    <string name="dynamic_colors_description">Включено — цвета обоев. Выключено — яркая палитра Google.</string>
     <string name="dynamic_colors_unavailable">Доступны начиная с Android 12</string>
     <string name="browsing">Просмотр сайтов</string>
     <string name="desktop_mode">Версия для компьютера</string>
@@ -79,3 +79,4 @@
     <string name="browser_no_adapter">Отдельного адаптера для этого сервиса пока нет. Доступно обычное открытие сайта.</string>
     <string name="got_it">Понятно</string>
 </resources>
+

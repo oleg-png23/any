@@ -4,6 +4,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Science
@@ -38,16 +43,26 @@ internal fun serviceIcon(id: String): ImageVector = when (id) {
 
 @Composable
 internal fun serviceStyle(id: String): ServiceStyle {
-    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.35f
+    val colors = MaterialTheme.colorScheme
+    if (LocalWallpaperColors.current) {
+        val (container, ink, accent) = when (id) {
+            "studio" -> Triple(colors.tertiaryContainer, colors.onTertiaryContainer, colors.tertiary)
+            "labs" -> Triple(colors.secondaryContainer, colors.onSecondaryContainer, colors.secondary)
+            "gemini" -> Triple(lerp(colors.primaryContainer, colors.tertiaryContainer, 0.45f), colors.onPrimaryContainer, colors.primary)
+            else -> Triple(colors.primaryContainer, colors.onPrimaryContainer, colors.primary)
+        }
+        return ServiceStyle(container, lerp(container, colors.surfaceContainerHigh, 0.22f), ink, accent)
+    }
+    val dark = colors.surface.luminance() < 0.35f
     return when (id) {
-        "flow" -> if (dark) ServiceStyle(Color(0xFF142F43), Color(0xFF1B4059), Color(0xFFE4F3FF), Color(0xFF9CCFFF))
-            else ServiceStyle(Color(0xFFDDF5FF), Color(0xFFC9E3F9), Color(0xFF16334C), Color(0xFF155D96))
-        "studio" -> if (dark) ServiceStyle(Color(0xFF2E2441), Color(0xFF283450), Color(0xFFF1E9FF), Color(0xFFD4BAFF))
-            else ServiceStyle(Color(0xFFF0E5FF), Color(0xFFDFE6FF), Color(0xFF35264F), Color(0xFF7146A4))
-        "labs" -> if (dark) ServiceStyle(Color(0xFF3D2D1B), Color(0xFF313A26), Color(0xFFFFEDCC), Color(0xFFFFD28C))
-            else ServiceStyle(Color(0xFFFFF0CF), Color(0xFFF0E9D5), Color(0xFF493114), Color(0xFF8B530A))
-        else -> if (dark) ServiceStyle(Color(0xFF292E4B), Color(0xFF1A3B3D), Color(0xFFE9ECFF), Color(0xFFC4C9FF))
-            else ServiceStyle(Color(0xFFE8E5FF), Color(0xFFD8F2EF), Color(0xFF2C3157), Color(0xFF5556A3))
+        "flow" -> if (dark) ServiceStyle(Color(0xFF123C78), Color(0xFF16325B), Color(0xFFEAF1FF), Color(0xFFA8C7FA))
+            else ServiceStyle(Color(0xFFD3E3FD), Color(0xFFE1ECFF), Color(0xFF041E49), Color(0xFF0B57D0))
+        "studio" -> if (dark) ServiceStyle(Color(0xFF534000), Color(0xFF3D3212), Color(0xFFFFEFC7), Color(0xFFFFD66D))
+            else ServiceStyle(Color(0xFFFFE7A5), Color(0xFFFFF1CF), Color(0xFF352300), Color(0xFF805600))
+        "labs" -> if (dark) ServiceStyle(Color(0xFF164B2A), Color(0xFF173A26), Color(0xFFD9F9E2), Color(0xFF6DD58C))
+            else ServiceStyle(Color(0xFFC4EED0), Color(0xFFDCF7E3), Color(0xFF072711), Color(0xFF146C2E))
+        else -> if (dark) ServiceStyle(Color(0xFF58302E), Color(0xFF402A35), Color(0xFFFFEDEA), Color(0xFFF2B8B5))
+            else ServiceStyle(Color(0xFFF9DEDC), Color(0xFFFCE9EC), Color(0xFF3F1210), Color(0xFFB3261E))
     }
 }
 
@@ -117,7 +132,8 @@ internal fun ServiceBackdrop(id: String, style: ServiceStyle, modifier: Modifier
 @Composable
 internal fun ServiceAvatar(id: String, modifier: Modifier = Modifier) {
     val style = serviceStyle(id)
-    Surface(modifier.size(52.dp), shape = MaterialTheme.shapes.medium, color = style.accent.copy(alpha = 0.12f), contentColor = style.accent) {
-        Box(contentAlignment = Alignment.Center) { Icon(serviceIcon(id), contentDescription = null, modifier = Modifier.size(28.dp)) }
+    Surface(modifier.requiredSize(52.dp).testTag("service-avatar-$id"), shape = CircleShape, color = style.accent, contentColor = style.start) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(serviceIcon(id), contentDescription = null, modifier = Modifier.requiredSize(28.dp).testTag("service-glyph-$id")) }
     }
 }
+

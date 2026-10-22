@@ -11,7 +11,7 @@ class SettingsStore(context: Context) {
         val defaults = AppSettings()
         return AppSettings(
             theme = runCatching { ThemeMode.valueOf(prefs.getString("theme", "SYSTEM")!!) }.getOrDefault(ThemeMode.SYSTEM),
-            dynamicColor = prefs.getBoolean("dynamicColor", true),
+            dynamicColor = prefs.getBoolean("dynamicColor", defaults.dynamicColor),
             desktopMode = prefs.getBoolean("desktop", false),
             favorites = prefs.getStringSet("favorites", defaults.favorites)!!.toSet(),
             adapters = prefs.getStringSet("adapters", defaults.adapters)!!.toSet(),
@@ -62,3 +62,4 @@ class SettingsStore(context: Context) {
         }.apply()
     }
 }
+

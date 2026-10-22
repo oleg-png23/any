@@ -30,7 +30,7 @@ data class ServiceRecord(
 
 data class AppSettings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = true,
+    val dynamicColor: Boolean = false,
     val desktopMode: Boolean = false,
     val favorites: Set<String> = setOf("flow", "studio"),
     val adapters: Set<String> = setOf("flow", "labs"),
@@ -49,3 +49,4 @@ data class BrowserUiState(
     val error: String? = null,
     val extensionReady: Boolean = false,
 )
+

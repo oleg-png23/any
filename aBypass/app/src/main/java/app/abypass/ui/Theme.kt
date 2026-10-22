@@ -30,67 +30,47 @@ import app.abypass.data.AppSettings
 import app.abypass.data.ThemeMode
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF006B5E),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFF9BF2DA),
-    onPrimaryContainer = Color(0xFF002019),
-    secondary = Color(0xFF4A635A),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFCDE8DB),
-    onSecondaryContainer = Color(0xFF072018),
-    tertiary = Color(0xFF645484),
-    onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFEADDFF),
-    onTertiaryContainer = Color(0xFF21103E),
-    background = Color(0xFFF5FAF6),
-    onBackground = Color(0xFF171D1A),
-    surface = Color(0xFFF5FAF6),
-    onSurface = Color(0xFF171D1A),
-    surfaceVariant = Color(0xFFDBE5DE),
-    onSurfaceVariant = Color(0xFF3F4943),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFEFF5F0),
-    surfaceContainer = Color(0xFFE9EFEB),
-    surfaceContainerHigh = Color(0xFFE3EAE5),
-    surfaceContainerHighest = Color(0xFFDEE4DF),
-    outline = Color(0xFF6F7972),
-    outlineVariant = Color(0xFFBFC9C1),
+    primary = Color(0xFF0B57D0), onPrimary = Color.White,
+    primaryContainer = Color(0xFFD3E3FD), onPrimaryContainer = Color(0xFF041E49),
+    secondary = Color(0xFF146C2E), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFC4EED0), onSecondaryContainer = Color(0xFF072711),
+    tertiary = Color(0xFF805600), onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFFE7A5), onTertiaryContainer = Color(0xFF291800),
+    error = Color(0xFFB3261E), errorContainer = Color(0xFFF9DEDC),
+    background = Color(0xFFF8FAFD), onBackground = Color(0xFF1F1F1F),
+    surface = Color(0xFFF8FAFD), onSurface = Color(0xFF1F1F1F),
+    surfaceVariant = Color(0xFFE1E7F0), onSurfaceVariant = Color(0xFF444746),
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF0F4F9),
+    surfaceContainer = Color(0xFFE9EEF6), surfaceContainerHigh = Color(0xFFE1E9F4),
+    surfaceContainerHighest = Color(0xFFD9E2EF),
+    outline = Color(0xFF747775), outlineVariant = Color(0xFFC4C7C5),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF7FD6BF),
-    onPrimary = Color(0xFF00382D),
-    primaryContainer = Color(0xFF005143),
-    onPrimaryContainer = Color(0xFF9BF2DA),
-    secondary = Color(0xFFB1CCBF),
-    onSecondary = Color(0xFF1D352B),
-    secondaryContainer = Color(0xFF334C41),
-    onSecondaryContainer = Color(0xFFCDE8DB),
-    tertiary = Color(0xFFCFC0EC),
-    onTertiary = Color(0xFF36264F),
-    tertiaryContainer = Color(0xFF4C3C69),
-    onTertiaryContainer = Color(0xFFEADDFF),
-    background = Color(0xFF0F1512),
-    onBackground = Color(0xFFDEE4DF),
-    surface = Color(0xFF0F1512),
-    onSurface = Color(0xFFDEE4DF),
-    surfaceVariant = Color(0xFF3F4943),
-    onSurfaceVariant = Color(0xFFBFC9C1),
-    surfaceContainerLowest = Color(0xFF0A100D),
-    surfaceContainerLow = Color(0xFF171D1A),
-    surfaceContainer = Color(0xFF1B211E),
-    surfaceContainerHigh = Color(0xFF252B28),
-    surfaceContainerHighest = Color(0xFF303632),
-    outline = Color(0xFF89938B),
-    outlineVariant = Color(0xFF3F4943),
+    primary = Color(0xFFA8C7FA), onPrimary = Color(0xFF062E6F),
+    primaryContainer = Color(0xFF0842A0), onPrimaryContainer = Color(0xFFD3E3FD),
+    secondary = Color(0xFF6DD58C), onSecondary = Color(0xFF003918),
+    secondaryContainer = Color(0xFF0F5223), onSecondaryContainer = Color(0xFFC4EED0),
+    tertiary = Color(0xFFFFD66D), onTertiary = Color(0xFF432C00),
+    tertiaryContainer = Color(0xFF614100), onTertiaryContainer = Color(0xFFFFE7A5),
+    error = Color(0xFFF2B8B5), errorContainer = Color(0xFF8C1D18),
+    background = Color(0xFF101318), onBackground = Color(0xFFE3E3E3),
+    surface = Color(0xFF101318), onSurface = Color(0xFFE3E3E3),
+    surfaceVariant = Color(0xFF444746), onSurfaceVariant = Color(0xFFC4C7C5),
+    surfaceContainerLowest = Color(0xFF0B0E12), surfaceContainerLow = Color(0xFF191D24),
+    surfaceContainer = Color(0xFF1E232C), surfaceContainerHigh = Color(0xFF292F3A),
+    surfaceContainerHighest = Color(0xFF343C49),
+    outline = Color(0xFF8E918F), outlineVariant = Color(0xFF444746),
 )
 
+internal val LocalWallpaperColors = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 private val AppTypography = Typography(
-    headlineLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 32.sp, lineHeight = 38.sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 28.sp, lineHeight = 34.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 24.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
+    headlineLarge = TextStyle(fontWeight = FontWeight.Normal, fontSize = 32.sp, lineHeight = 38.sp),
+    headlineMedium = TextStyle(fontWeight = FontWeight.Normal, fontSize = 28.sp, lineHeight = 34.sp),
+    titleLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 22.sp, lineHeight = 28.sp),
+    titleMedium = TextStyle(fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp),
+    labelLarge = TextStyle(fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
 )
 
 @Composable
@@ -117,18 +97,20 @@ fun ABypassTheme(settings: AppSettings, content: @Composable () -> Unit) {
     } else {
         if (dark) DarkColors else LightColors
     }
-    MaterialTheme(
-        colorScheme = animatedColors(colors),
-        typography = AppTypography,
-        shapes = Shapes(
-            extraSmall = RoundedCornerShape(8.dp),
-            small = RoundedCornerShape(12.dp),
-            medium = RoundedCornerShape(20.dp),
-            large = RoundedCornerShape(28.dp),
-            extraLarge = RoundedCornerShape(36.dp),
-        ),
-        content = content,
-    )
+    androidx.compose.runtime.CompositionLocalProvider(LocalWallpaperColors provides (settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)) {
+        MaterialTheme(
+            colorScheme = animatedColors(colors),
+            typography = AppTypography,
+            shapes = Shapes(
+                extraSmall = RoundedCornerShape(8.dp),
+                small = RoundedCornerShape(12.dp),
+                medium = RoundedCornerShape(20.dp),
+                large = RoundedCornerShape(28.dp),
+                extraLarge = RoundedCornerShape(36.dp),
+            ),
+            content = content,
+        )
+    }
 }
 
 /** Animate only native theme tokens; browser views retain their own session and lifetime. */
@@ -155,3 +137,4 @@ private fun animatedColors(target: ColorScheme): ColorScheme {
 
 @Composable
 private fun motionColor(color: Color, role: String): Color = animateColorAsState(color, tween(260), label = role).value
+
