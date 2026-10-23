@@ -1,0 +1,85 @@
+# aBypass
+
+Version 0.1.8 redesigns the native UI around [Material 3 Expressive](https://design.google/library/expressive-material-design-google-research) and Pixel references: a compact two-column catalog, connected settings rows, visual theme choices, an expressive short navigation bar, floating browser controls, and spring-driven shape, layout and navigation transitions. Wallpaper colors remain optional on Android 12+.
+
+AI Studio has its own eligibility checks. A redirect to Google's available-regions documentation now has a distinct status and explanation; it is not recorded as successful access. This version does not claim to restore AI Studio access. To diagnose it, open Studio and export the app journal along with the visible error text. Flow's adapter is retained from 0.1.4.
+
+
+Android-приложение с нативным интерфейсом Material 3 для Flow, AI Studio, Google Labs и Gemini. Каталог, избранное, поиск, светлая/тёмная тема, динамические цвета, встроенный браузер, файлы и локальная диагностика.
+
+## Установка
+
+Прямое скачивание APK: [GitHub Releases](https://github.com/oleg-png23/any/releases).
+
+Версия 0.1.8: **Android 8.0+ (API 26), ARM64**. APK собирается workflow **aBypass Android**, артефакт `aBypass-0.1.8-arm64`. Это подписанная отладочная сборка для испытаний. Для установки разрешите установку APK приложению, которым открываете файл.
+
+## Оформление и движение
+
+По умолчанию используется сиреневая палитра с контрастной основной плиткой и персиковыми, зелёными и лавандовыми контейнерами. На обычном телефоне четыре сервиса расположены в двух колонках; при крупном шрифте и в узком окне используется одна колонка. Статусы используют контрастный цвет своей поверхности. Сведения о странице открываются в прокручиваемой нижней панели с быстрыми действиями. На Android 12+ переключатель «Цвета обоев» включает системную палитру Material You, в том числе для карточек сервисов. Ранее сохранённый выбор цветов обоев сохраняется.
+
+У каждого сервиса свой встроенный векторный фон и иконка фиксированного размера с центрированным знаком. Значок приложения выровнен внутри безопасной области адаптивной маски и поддерживает тематическую окраску Android 13+. Декор не скачивается из сети. Переходы разделов, тема, избранное, нажатия, фильтрация и подробности анимированы средствами Compose с учётом системного масштаба анимации. Поиск и положение списка сохраняются между разделами.
+
+Нативные библиотеки сжаты в APK, чтобы уменьшить скачивание. При установке Android распаковывает их, поэтому размер установленного приложения остаётся больше размера APK. Загрузка сайтов Google по-прежнему требует подключения к интернету.
+
+Отладочные APK разных запусков CI могут иметь разные подписи. Если Android не даёт обновить предыдущую версию этой сборкой, потребуется удалить прежнюю тестовую версию; это удалит её профиль сайтов.
+
+## При слабом интернете
+
+Пока страница загружается, центральная кнопка панели останавливает загрузку. Появляется состояние «Загрузка остановлена» с повторной попыткой; уже загруженная часть страницы сохраняется. Это не считается сетевой ошибкой или успешным доступом к сервису. Кнопка «Назад» работает и во время первоначальной подготовки браузера.
+
+## Что делает режим совместимости
+
+Встроенный в GeckoView адаптер корректирует только известные клиентские признаки региональной доступности на `flow.google.com` и `labs.google`. Его можно выключить отдельно для сервиса. Неизвестные форматы ответов остаются без изменений. Отдельные поля возраста, подписки, оплаты, кредитов, квот и ручной выход из аккаунта не изменяются. Кроме географического флага, обрабатывается клиентский статус в четырёх известных RPC доступности; сам по себе он не доказывает доступ аккаунта.
+
+Это экспериментальная совместимость. Открытие страницы и число применённых коррекций **не подтверждают** работу генерации или снятие серверного ограничения. Для AI Studio и Gemini в этой версии доступен браузерный просмотр; отдельный подтверждённый региональный адаптер для них не реализован. Из Google Labs поддержка определяется отдельно для каждого инструмента.
+
+Вход проходит на страницах Google. Приложение не запрашивает собственный OAuth-клиент, не копирует cookies из других браузеров и не подменяет страницу входа. Если Google отказывает встроенному браузеру, пункт «В другом браузере» открывает текущую HTTPS-страницу во внешнем браузере; автоматический перенос сессии между браузерами не предусмотрен.
+
+## Сборка
+
+Нужны JDK 17, Android SDK Platform 37.2, Build Tools 36.0.0 и доступ к Google Maven, Maven Central и Mozilla Maven.
+
+```sh
+./gradlew lintDebug testDebugUnitTest assembleDebug
+node --test tests/compat.test.cjs
+```
+
+APK: `app/build/outputs/apk/debug/app-debug.apk`. Для x86_64 эмулятора:
+
+```sh
+./gradlew -PabypassAbis=x86_64 connectedDebugAndroidTest
+```
+
+Gradle 9.6.0 закреплён Wrapper с SHA-256 дистрибутива. AGP 9.4.0 со встроенной поддержкой Kotlin 2.4.10, Compose BOM 2026.09.00 с явной зависимостью Material 3 Expressive 1.5.0-beta02 и GeckoView 158.0.20261021001945 закреплены в исходниках. SDK 37.2 нужен для сборки актуального браузерного движка; минимальная версия устройства остаётся Android 8.0.
+
+## Проверка доступа на устройстве
+
+1. Откройте сервис из каталога.
+2. При необходимости войдите в Google и проверьте наличие доступа у аккаунта.
+3. Выполните одну основную операцию сервиса и сохраните результат.
+4. При проблеме сравните поведение с включённой и выключенной совместимостью. После переключения обновите страницу.
+5. Запишите дату, версию Android, сеть, регион, версию приложения и наблюдаемый результат в `docs/compatibility.md`.
+
+Экран «Проверки» отражает только наблюдаемую загрузку страницы и работу адаптера. Диагностика содержит фиксированные события без cookies, токенов, URL с параметрами и пользовательского содержимого. Экспорт выполняется вручную в выбранный файл. Сеть приложения используется для открываемых сайтов и браузерных компонентов, отдельного сервера аналитики или активации у aBypass нет.
+
+Сервисы используют общий браузерный профиль. Очистка данных закрывает все сессии и очищает данные всех сайтов. Выбранные для загрузки файлы временно копируются в кэш приложения; при очистке данных они удаляются. Удаление приложения удаляет профиль.
+
+## Структура
+
+- `app/.../ui` — Material 3 оболочка.
+- `app/.../browser` — GeckoView, навигация, диалоги, файлы.
+- `app/.../data` — настройки, локальные результаты проверок.
+- `app/src/main/assets/compat` — оригинальный региональный адаптер и его границы.
+- `tests` — тесты адаптера на Node.js без внешних зависимостей.
+- `app/src/androidTest` — UI-тесты без Google-аккаунта и сети.
+
+Референс исследован по методике [REA](https://github.com/morluto/rea); исходный APK не включён в репозиторий. Реализация адаптера написана заново. GeckoView распространяется под MPL 2.0, AndroidX — Apache 2.0; их уведомления остаются в составе зависимостей.
+
+
+
+
+## Native interface
+
+The UI uses Material 3 Expressive (Material3 1.5.0-beta02) and its expressive motion scheme. The catalog is a compact two-column grid on phones; large type and narrow windows use one column. Theme previews, connected settings rows, the short navigation bar and the browser floating toolbar are native Compose components. Service artwork is drawn locally. UI screenshots and frame-by-frame press, release, filter and navigation captures are collected by the emulator workflow. Browser sessions and adapters are unchanged by the redesign.
+
+Core navigation and service icons use bundled [Material Symbols Rounded](https://github.com/google/material-design-icons), under Apache 2.0. Their license is included in the APK at `assets/notices/material-symbols-LICENSE.txt`.
