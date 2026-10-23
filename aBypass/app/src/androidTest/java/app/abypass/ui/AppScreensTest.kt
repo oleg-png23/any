@@ -313,7 +313,7 @@ class AppScreensTest {
         compose.onNodeWithText(text(R.string.search_services)).performTextInput("Flow")
         navigateTo(R.string.nav_settings)
         navigateTo(R.string.nav_services)
-        compose.onNodeWithText("Flow").assertIsDisplayed()
+        compose.onNode(hasText("Flow") and !hasSetTextAction()).assertIsDisplayed()
         compose.onNodeWithText("AI Studio").assertDoesNotExist()
     }
 

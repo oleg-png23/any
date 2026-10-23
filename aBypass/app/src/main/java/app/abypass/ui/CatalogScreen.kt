@@ -71,7 +71,7 @@ internal fun ServicesScreen(
                         Text(stringResource(R.string.services_hero_description), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                        Icon(Icons.Outlined.AutoAwesome, null, Modifier.padding(14.dp).size(26.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Icon(AppSymbols.AutoAwesome, null, Modifier.padding(14.dp).size(26.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
             }
@@ -79,7 +79,7 @@ internal fun ServicesScreen(
                 TextField(
                     value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(R.string.search_services)) },
-                    leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                    leadingIcon = { Icon(AppSymbols.Search, null) },
                     trailingIcon = {
                         if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, stringResource(R.string.clear_search)) }
                     },
@@ -105,7 +105,7 @@ internal fun ServicesScreen(
                             contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                         ) {
                             Row(Modifier.padding(horizontal = 12.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(if (favorites) Icons.Outlined.Favorite else Icons.Outlined.Apps, null, Modifier.size(20.dp))
+                                Icon(if (favorites) AppSymbols.Favorite else AppSymbols.Apps, null, Modifier.size(20.dp))
                                 Text(stringResource(if (favorites) R.string.favorites else R.string.all_services), style = MaterialTheme.typography.labelLarge)
                             }
                         }
@@ -126,14 +126,12 @@ internal fun ServicesScreen(
             }
             if (filtered.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 36.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Outlined.Search, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(AppSymbols.Search, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
                     Text(stringResource(R.string.no_services_title), style = MaterialTheme.typography.titleLarge)
                     Text(stringResource(if (favoritesOnly) R.string.no_favorites_description else R.string.no_services_description), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(stringResource(R.string.services_footer), Modifier.padding(horizontal = 8.dp, vertical = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+
         }
     }
 }
@@ -171,7 +169,7 @@ private fun ServiceTile(
                             (scaleIn(motion.fastSpatialSpec(), initialScale = 0.4f) + fadeIn(motion.fastEffectsSpec())) togetherWith
                                 (scaleOut(motion.fastSpatialSpec(), targetScale = 0.4f) + fadeOut(motion.fastEffectsSpec()))
                         }, label = "favorite") { checked ->
-                            Icon(if (checked) Icons.Outlined.Favorite else Icons.Outlined.FavoriteBorder,
+                            Icon(if (checked) AppSymbols.Favorite else AppSymbols.FavoriteBorder,
                                 stringResource(if (checked) R.string.remove_favorite else R.string.add_favorite, service.name), tint = style.ink)
                         }
                     }

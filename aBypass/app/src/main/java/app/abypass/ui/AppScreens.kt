@@ -100,6 +100,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -121,10 +122,10 @@ import java.net.URI
 import java.text.DateFormat
 import java.util.Date
 
-private enum class Destination(@StringRes val title: Int, val icon: ImageVector) {
-    SERVICES(R.string.nav_services, Icons.Outlined.Apps),
-    CHECKS(R.string.nav_checks, Icons.Outlined.VerifiedUser),
-    SETTINGS(R.string.nav_settings, Icons.Outlined.Settings),
+private enum class Destination(@StringRes val title: Int, val icon: Int) {
+    SERVICES(R.string.nav_services, R.drawable.symbol_grid_view),
+    CHECKS(R.string.nav_checks, R.drawable.symbol_verified_user),
+    SETTINGS(R.string.nav_settings, R.drawable.symbol_settings),
 }
 
 @Composable
@@ -289,11 +290,7 @@ fun ABypassApp(
 
 @Composable
 private fun NavigationIcon(destination: Destination, selected: Boolean) {
-    val icon = if (selected) when (destination) {
-        Destination.SERVICES -> Icons.Filled.Apps
-        Destination.CHECKS -> Icons.Filled.VerifiedUser
-        Destination.SETTINGS -> Icons.Filled.Settings
-    } else destination.icon
+    val icon = ImageVector.vectorResource(destination.icon)
     val scale by animateFloatAsState(if (selected) 1.1f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "navigation-icon")
     Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
 }
@@ -313,7 +310,7 @@ private fun ChecksScreen(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        item { PageHeader(stringResource(R.string.checks_title), stringResource(R.string.checks_subtitle), Icons.Outlined.VerifiedUser) }
+        item { PageHeader(stringResource(R.string.checks_title), stringResource(R.string.checks_subtitle), AppSymbols.VerifiedUser) }
         item {
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.secondaryContainer) {
                 Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -354,8 +351,8 @@ private fun ChecksScreen(
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), shape = MaterialTheme.shapes.large) {
                 Column(Modifier.fillMaxWidth()) {
                     ListItem(
-                        modifier = Modifier.clickable { detailsExpanded = !detailsExpanded },
-                        headlineContent = { Text(stringResource(R.string.technical_details)) },
+                        onClick = { detailsExpanded = !detailsExpanded },
+                        content = { Text(stringResource(R.string.technical_details)) },
                         supportingContent = { Text(stringResource(R.string.technical_details_subtitle)) },
                         leadingContent = { Icon(Icons.Outlined.HelpOutline, contentDescription = null) },
                         trailingContent = { Icon(if (detailsExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = stringResource(if (detailsExpanded) R.string.collapse else R.string.expand)) },
@@ -386,7 +383,7 @@ private fun ChecksScreen(
         if (detailsExpanded) {
             item { SectionLabel(stringResource(R.string.recent_events), Icons.Outlined.Schedule) }
             if (events.isEmpty()) {
-                item { EmptyState(Icons.Outlined.VerifiedUser, stringResource(R.string.no_events_title), stringResource(R.string.no_events_description)) }
+                item { EmptyState(AppSymbols.VerifiedUser, stringResource(R.string.no_events_title), stringResource(R.string.no_events_description)) }
             } else {
                 items(events.takeLast(100).asReversed()) { event ->
                     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.medium) {
@@ -450,21 +447,21 @@ private fun BrowserScreen(
                 if (service?.id == "studio") Text(stringResource(R.string.studio_access_help), style = MaterialTheme.typography.bodyMedium)
                 HorizontalDivider()
                 ListItem(
-                    modifier = Modifier.clickable { closeInfoThen(onExportDiagnostics) },
-                    headlineContent = { Text(stringResource(R.string.export_diagnostics)) },
+                    onClick = { closeInfoThen(onExportDiagnostics) },
+                    content = { Text(stringResource(R.string.export_diagnostics)) },
                     leadingContent = { Icon(Icons.Outlined.Download, null) },
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
                 ListItem(
-                    modifier = Modifier.clickable { closeInfoThen(onDesktopToggle) },
-                    headlineContent = { Text(stringResource(R.string.desktop_mode)) },
-                    leadingContent = { Icon(Icons.Outlined.DesktopWindows, null) },
+                    onClick = { closeInfoThen(onDesktopToggle) },
+                    content = { Text(stringResource(R.string.desktop_mode)) },
+                    leadingContent = { Icon(AppSymbols.DesktopWindows, null) },
                     trailingContent = { Switch(checked = desktopMode, onCheckedChange = null) },
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
                 ListItem(
-                    modifier = Modifier.clickable { closeInfoThen(onExternalOpen) },
-                    headlineContent = { Text(stringResource(R.string.browser_external)) },
+                    onClick = { closeInfoThen(onExternalOpen) },
+                    content = { Text(stringResource(R.string.browser_external)) },
                     leadingContent = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, null) },
                     colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = Color.Transparent),
                 )
@@ -509,7 +506,7 @@ private fun BrowserScreen(
                         }
                     }
                     IconToggleButton(checked = desktopMode, onCheckedChange = { onDesktopToggle() }) {
-                        Icon(Icons.Outlined.DesktopWindows, contentDescription = stringResource(R.string.desktop_mode), tint = if (desktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(AppSymbols.DesktopWindows, contentDescription = stringResource(R.string.desktop_mode), tint = if (desktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onExternalOpen) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.browser_external)) }
                 }

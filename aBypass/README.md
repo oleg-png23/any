@@ -1,6 +1,6 @@
 # aBypass
 
-Version 0.1.8 refines the native interface using [Material 3](https://m3.material.io/get-started) and the official [Compose implementation](https://developer.android.com/develop/ui/compose/designsystems/material3): tonal container roles, 36/44 display typography, filled cards, segmented buttons, grouped settings and a floating browser toolbar. Wallpaper colors remain optional on Android 12+.
+Version 0.1.8 redesigns the native UI around [Material 3 Expressive](https://design.google/library/expressive-material-design-google-research) and Pixel references: a compact two-column catalog, connected settings rows, visual theme choices, an expressive short navigation bar, floating browser controls, and spring-driven shape, layout and navigation transitions. Wallpaper colors remain optional on Android 12+.
 
 AI Studio has its own eligibility checks. A redirect to Google's available-regions documentation now has a distinct status and explanation; it is not recorded as successful access. This version does not claim to restore AI Studio access. To diagnose it, open Studio and export the app journal along with the visible error text. Flow's adapter is retained from 0.1.4.
 
@@ -15,7 +15,7 @@ Android-приложение с нативным интерфейсом Material
 
 ## Оформление и движение
 
-По умолчанию включена яркая палитра с синими, зелёными и сиреневыми тональными контейнерами. На широком экране каталог переходит в сетку; при крупном шрифте карточки занимают всю ширину. Статусы используют контрастный цвет своей поверхности. Сведения о странице открываются в прокручиваемой нижней панели с быстрыми действиями. На Android 12+ переключатель «Цвета обоев» включает системную палитру Material You, в том числе для карточек сервисов. Ранее сохранённый выбор цветов обоев сохраняется.
+По умолчанию используется сиреневая палитра с контрастной основной плиткой и персиковыми, зелёными и лавандовыми контейнерами. На обычном телефоне четыре сервиса расположены в двух колонках; при крупном шрифте и в узком окне используется одна колонка. Статусы используют контрастный цвет своей поверхности. Сведения о странице открываются в прокручиваемой нижней панели с быстрыми действиями. На Android 12+ переключатель «Цвета обоев» включает системную палитру Material You, в том числе для карточек сервисов. Ранее сохранённый выбор цветов обоев сохраняется.
 
 У каждого сервиса свой встроенный векторный фон и иконка фиксированного размера с центрированным знаком. Значок приложения выровнен внутри безопасной области адаптивной маски и поддерживает тематическую окраску Android 13+. Декор не скачивается из сети. Переходы разделов, тема, избранное, нажатия, фильтрация и подробности анимированы средствами Compose с учётом системного масштаба анимации. Поиск и положение списка сохраняются между разделами.
 
@@ -50,7 +50,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`. Для x86_64 эмулятор
 ./gradlew -PabypassAbis=x86_64 connectedDebugAndroidTest
 ```
 
-Gradle 9.6.0 закреплён Wrapper с SHA-256 дистрибутива. AGP 9.4.0 со встроенной поддержкой Kotlin 2.4.10, Compose BOM 2025.10.01 (Material 3 1.4.0) и GeckoView 158.0.20261021001945 закреплены в исходниках. SDK 37.2 нужен для сборки актуального браузерного движка; минимальная версия устройства остаётся Android 8.0.
+Gradle 9.6.0 закреплён Wrapper с SHA-256 дистрибутива. AGP 9.4.0 со встроенной поддержкой Kotlin 2.4.10, Compose BOM 2026.09.00 с явной зависимостью Material 3 Expressive 1.5.0-beta02 и GeckoView 158.0.20261021001945 закреплены в исходниках. SDK 37.2 нужен для сборки актуального браузерного движка; минимальная версия устройства остаётся Android 8.0.
 
 ## Проверка доступа на устройстве
 
@@ -81,3 +81,5 @@ Gradle 9.6.0 закреплён Wrapper с SHA-256 дистрибутива. AGP
 ## Native interface
 
 The UI uses Material 3 Expressive (Material3 1.5.0-beta02) and its expressive motion scheme. The catalog is a compact two-column grid on phones; large type and narrow windows use one column. Theme previews, connected settings rows, the short navigation bar and the browser floating toolbar are native Compose components. Service artwork is drawn locally. UI screenshots and frame-by-frame press, release, filter and navigation captures are collected by the emulator workflow. Browser sessions and adapters are unchanged by the redesign.
+
+Core navigation and service icons use bundled [Material Symbols Rounded](https://github.com/google/material-design-icons), under Apache 2.0. Their license is included in the APK at `assets/notices/material-symbols-LICENSE.txt`.

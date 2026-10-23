@@ -1,4 +1,4 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package app.abypass.ui
 
@@ -33,6 +33,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.abypass.BuildConfig
@@ -43,7 +45,7 @@ import app.abypass.data.*
 @Composable
 internal fun SettingsScreen(settings: AppSettings, onSettingsChange: (AppSettings) -> Unit, onClearData: () -> Unit, modifier: Modifier = Modifier) {
     LazyColumn(modifier, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { PageHeader(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle), Icons.Outlined.Settings) }
+        item { PageHeader(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle), AppSymbols.Settings) }
         item { SettingsLabel(stringResource(R.string.appearance)) }
         item {
             val options = listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
@@ -59,24 +61,24 @@ internal fun SettingsScreen(settings: AppSettings, onSettingsChange: (AppSetting
         }
         item {
             SettingsGroup {
-                SwitchSetting(stringResource(R.string.dynamic_colors), stringResource(if (Build.VERSION.SDK_INT >= 31) R.string.dynamic_colors_description else R.string.dynamic_colors_unavailable), Icons.Outlined.Palette,
+                SwitchSetting(stringResource(R.string.dynamic_colors), stringResource(if (Build.VERSION.SDK_INT >= 31) R.string.dynamic_colors_description else R.string.dynamic_colors_unavailable), AppSymbols.Palette,
                     settings.dynamicColor, Build.VERSION.SDK_INT >= 31, { onSettingsChange(settings.copy(dynamicColor = it)) })
             }
         }
         item { SettingsLabel(stringResource(R.string.browsing)) }
         item {
             SettingsGroup {
-                SwitchSetting(stringResource(R.string.desktop_mode), stringResource(R.string.desktop_mode_description), Icons.Outlined.DesktopWindows,
+                SwitchSetting(stringResource(R.string.desktop_mode), stringResource(R.string.desktop_mode_description), AppSymbols.DesktopWindows,
                     settings.desktopMode, onCheckedChange = { onSettingsChange(settings.copy(desktopMode = it)) }, accent = MaterialTheme.colorScheme.tertiaryContainer)
             }
         }
         item { SettingsLabel(stringResource(R.string.compatibility)) }
         item {
             SettingsGroup {
-                Services.all.filter { it.hasAdapter }.forEach { service ->
+                Services.all.filter { it.hasAdapter }.forEachIndexed { index, service ->
                     SwitchSetting(service.name, stringResource(R.string.compatibility_setting_description), serviceIcon(service.id), service.id in settings.adapters,
                         onCheckedChange = { enabled -> onSettingsChange(settings.copy(adapters = if (enabled) settings.adapters + service.id else settings.adapters - service.id)) },
-                        accent = MaterialTheme.colorScheme.secondaryContainer)
+                        accent = MaterialTheme.colorScheme.secondaryContainer, index = index, count = 2)
                 }
             }
         }
@@ -84,9 +86,9 @@ internal fun SettingsScreen(settings: AppSettings, onSettingsChange: (AppSetting
         item { SettingsLabel(stringResource(R.string.data_and_privacy)) }
         item {
             SettingsGroup {
-                ListItem(
-                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = onClearData),
-                    headlineContent = { Text(stringResource(R.string.clear_data_action)) },
+                SegmentedListItem(
+                    onClick = onClearData, shapes = ListItemDefaults.segmentedShapes(0, 1),
+                    content = { Text(stringResource(R.string.clear_data_action)) },
                     supportingContent = { Text(stringResource(R.string.clear_data_subtitle)) },
                     leadingContent = { SettingIcon(Icons.Outlined.DeleteOutline, MaterialTheme.colorScheme.tertiaryContainer) },
                     colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
@@ -155,10 +157,12 @@ private fun ThemePreview(theme: ThemeMode) {
 }
 
 @Composable
-private fun SwitchSetting(title: String, description: String, icon: ImageVector, checked: Boolean, enabled: Boolean = true, onCheckedChange: (Boolean) -> Unit, accent: Color = MaterialTheme.colorScheme.primaryContainer) {
-    ListItem(
-        modifier = Modifier.clip(RoundedCornerShape(4.dp)).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
-        headlineContent = { Text(title) }, supportingContent = { Text(description) },
+private fun SwitchSetting(title: String, description: String, icon: ImageVector, checked: Boolean, enabled: Boolean = true, onCheckedChange: (Boolean) -> Unit, accent: Color = MaterialTheme.colorScheme.primaryContainer, index: Int = 0, count: Int = 1) {
+    SegmentedListItem(
+        onClick = { onCheckedChange(!checked) }, enabled = enabled,
+        shapes = ListItemDefaults.segmentedShapes(index, count),
+        modifier = Modifier.semantics { role = Role.Switch; toggleableState = androidx.compose.ui.state.ToggleableState(checked) },
+        content = { Text(title) }, supportingContent = { Text(description) },
         leadingContent = { SettingIcon(icon, accent) },
         trailingContent = { Switch(checked, onCheckedChange = null, enabled = enabled, thumbContent = { Icon(if (checked) Icons.Outlined.Check else Icons.Outlined.Close, null, Modifier.size(16.dp)) }) },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),

@@ -33,11 +33,12 @@ import kotlin.math.sin
 /** Local vector artwork: no image requests, bitmap allocations or continuously running animation. */
 internal data class ServiceStyle(val start: Color, val end: Color, val ink: Color, val accent: Color)
 
+@Composable
 internal fun serviceIcon(id: String): ImageVector = when (id) {
-    "flow" -> Icons.Outlined.Videocam
-    "studio" -> Icons.Outlined.Terminal
-    "labs" -> Icons.Outlined.Science
-    else -> Icons.Outlined.AutoAwesome
+    "flow" -> AppSymbols.Videocam
+    "studio" -> AppSymbols.Terminal
+    "labs" -> AppSymbols.Science
+    else -> AppSymbols.AutoAwesome
 }
 
 @Composable

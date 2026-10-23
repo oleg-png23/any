@@ -97,7 +97,6 @@ jobs:
 
 
   publish:
-    if: false # Enable after screenshots and motion capture are reviewed.
     name: Publish direct APK download
     needs: [build, ui]
     runs-on: ubuntu-latest

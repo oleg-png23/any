@@ -1,5 +1,12 @@
 # Изменения
 
+## 0.1.8
+
+- Replaced the tall card feed with a compact two-column service grid inspired by Pixel quick access controls; large text uses a full-width column.
+- Adopted Material 3 Expressive, its spring motion scheme, short navigation bar, floating toolbar and wavy page progress. Settings use connected surfaces and visual theme choices.
+- Added full-tile vector backgrounds, bundled Material Symbols Rounded, spring shape changes, filter reflow, favorite transitions and directional page motion.
+- Added viewport, navigation-state and motion-capture UI checks while preserving browser and Flow adapter behavior.
+
 ## 0.1.7
 
 - Added native loading cancellation and explicit stopped/retry UI without discarding the page or browser profile.
@@ -64,5 +71,6 @@
 - GeckoView, общий профиль сайтов, навигация, всплывающие окна, выбор файлов, скачивание и локальная диагностика.
 - Оригинальный ограниченный региональный адаптер для Flow/Labs.
 - Автоматические тесты адаптера, JVM-проверки, Compose UI-тесты и сборка ARM64 APK в GitHub Actions.
+
 
 
