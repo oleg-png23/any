@@ -6,7 +6,7 @@
     <string name="nav_checks">Проверки</string>
     <string name="nav_settings">Настройки</string>
     <string name="services_hero_title">Больше места\nдля идей.</string>
-    <string name="services_hero_description">Твои инструменты Google. Всё под рукой.</string>
+    <string name="services_hero_description">Инструменты Google под рукой</string>
     <string name="search_services">Найти сервис</string>
     <string name="clear_search">Очистить поиск</string>
     <string name="all_services">Все сервисы</string>
@@ -19,7 +19,7 @@
     <string name="no_services_title">Ничего не найдено</string>
     <string name="no_services_description">Попробуйте другое название сервиса.</string>
     <string name="no_favorites_description">Добавьте сервисы в избранное кнопкой с сердцем или измените поиск.</string>
-    <string name="services_footer">Доступность зависит от сервиса, региона и аккаунта. Последний результат — в разделе «Проверки».</string>
+    <string name="services_footer">Последние результаты открытия — в «Проверках».</string>
     <string name="checks_title">Проверки</string>
     <string name="checks_subtitle">Что получилось при последнем открытии</string>
     <string name="checks_explanation">«Страница открылась» означает, что сайт загрузился. Доступ к генерации и другим функциям проверяется в самом сервисе.</string>
@@ -48,7 +48,7 @@
     <string name="theme_light">Светлая тема</string>
     <string name="theme_dark">Тёмная тема</string>
     <string name="dynamic_colors">Цвета обоев</string>
-    <string name="dynamic_colors_description">Включено — цвета обоев. Выключено — яркая палитра Google.</string>
+    <string name="dynamic_colors_description">Подстраивать оформление под обои телефона</string>
     <string name="dynamic_colors_unavailable">Доступны начиная с Android 12</string>
     <string name="browsing">Просмотр сайтов</string>
     <string name="desktop_mode">Версия для компьютера</string>
@@ -66,7 +66,7 @@
     <string name="clear_diagnostics_description">Сохранённые события будут удалены. Данные сайтов и аккаунты сохранятся.</string>
     <string name="clear">Очистить</string>
     <string name="cancel">Отмена</string>
-    <string name="about_description">Личное пространство для инструментов Google с интерфейсом Material 3.</string>
+    <string name="about_description">Инструменты Google в одном месте.</string>
     <string name="about_independent">Независимое приложение. Не связано с Google.</string>
     <string name="page">Страница</string>
     <string name="page_information">О странице</string>
@@ -85,5 +85,6 @@
     <string name="browser_no_adapter">Отдельного адаптера для этого сервиса пока нет. Доступно обычное открытие сайта.</string>
     <string name="got_it">Понятно</string>
 </resources>
+
 
 

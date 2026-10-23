@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package app.abypass.ui
 
 import android.os.Build
@@ -9,6 +11,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.ColorScheme
@@ -30,37 +34,37 @@ import app.abypass.data.AppSettings
 import app.abypass.data.ThemeMode
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF0B57D0), onPrimary = Color.White,
-    primaryContainer = Color(0xFFD3E3FD), onPrimaryContainer = Color(0xFF041E49),
-    secondary = Color(0xFF146C2E), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFC4EED0), onSecondaryContainer = Color(0xFF072711),
-    tertiary = Color(0xFF6E4B9B), onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFEADDFF), onTertiaryContainer = Color(0xFF251047),
+    primary = Color(0xFF6550A5), onPrimary = Color.White,
+    primaryContainer = Color(0xFFE9DDFF), onPrimaryContainer = Color(0xFF251347),
+    secondary = Color(0xFF56632E), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFDDEAAB), onSecondaryContainer = Color(0xFF1B2605),
+    tertiary = Color(0xFF7E5435), onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFFDBC2), onTertiaryContainer = Color(0xFF2E1705),
     error = Color(0xFFB3261E), errorContainer = Color(0xFFF9DEDC),
-    background = Color(0xFFF8FAFD), onBackground = Color(0xFF1F1F1F),
-    surface = Color(0xFFF8FAFD), onSurface = Color(0xFF1F1F1F),
-    surfaceVariant = Color(0xFFE1E7F0), onSurfaceVariant = Color(0xFF444746),
-    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF0F4F9),
-    surfaceContainer = Color(0xFFE9EEF6), surfaceContainerHigh = Color(0xFFE1E9F4),
-    surfaceContainerHighest = Color(0xFFD9E2EF),
-    outline = Color(0xFF747775), outlineVariant = Color(0xFFC4C7C5),
+    background = Color(0xFFF7F2FA), onBackground = Color(0xFF1D1B20),
+    surface = Color(0xFFF7F2FA), onSurface = Color(0xFF1D1B20),
+    surfaceVariant = Color(0xFFE7E0EB), onSurfaceVariant = Color(0xFF49454E),
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFFFFBFF),
+    surfaceContainer = Color(0xFFF0EAF5), surfaceContainerHigh = Color(0xFFECE5F2),
+    surfaceContainerHighest = Color(0xFFE4DCEB),
+    outline = Color(0xFF7A747F), outlineVariant = Color(0xFFCBC3D1),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFA8C7FA), onPrimary = Color(0xFF062E6F),
-    primaryContainer = Color(0xFF0842A0), onPrimaryContainer = Color(0xFFD3E3FD),
-    secondary = Color(0xFF6DD58C), onSecondary = Color(0xFF003918),
-    secondaryContainer = Color(0xFF0F5223), onSecondaryContainer = Color(0xFFC4EED0),
-    tertiary = Color(0xFFD5BAFF), onTertiary = Color(0xFF3D245D),
-    tertiaryContainer = Color(0xFF553B78), onTertiaryContainer = Color(0xFFEADDFF),
+    primary = Color(0xFFD0BCFF), onPrimary = Color(0xFF372371),
+    primaryContainer = Color(0xFF4E3A8B), onPrimaryContainer = Color(0xFFE9DDFF),
+    secondary = Color(0xFFBFCE91), onSecondary = Color(0xFF2B370F),
+    secondaryContainer = Color(0xFF414E20), onSecondaryContainer = Color(0xFFDDEAAB),
+    tertiary = Color(0xFFF2B991), onTertiary = Color(0xFF49290F),
+    tertiaryContainer = Color(0xFF633E22), onTertiaryContainer = Color(0xFFFFDBC2),
     error = Color(0xFFF2B8B5), errorContainer = Color(0xFF8C1D18),
-    background = Color(0xFF101318), onBackground = Color(0xFFE3E3E3),
-    surface = Color(0xFF101318), onSurface = Color(0xFFE3E3E3),
-    surfaceVariant = Color(0xFF444746), onSurfaceVariant = Color(0xFFC4C7C5),
-    surfaceContainerLowest = Color(0xFF0B0E12), surfaceContainerLow = Color(0xFF191D24),
-    surfaceContainer = Color(0xFF1E232C), surfaceContainerHigh = Color(0xFF292F3A),
-    surfaceContainerHighest = Color(0xFF343C49),
-    outline = Color(0xFF8E918F), outlineVariant = Color(0xFF444746),
+    background = Color(0xFF141218), onBackground = Color(0xFFE8E0EC),
+    surface = Color(0xFF141218), onSurface = Color(0xFFE8E0EC),
+    surfaceVariant = Color(0xFF49454E), onSurfaceVariant = Color(0xFFCBC3D1),
+    surfaceContainerLowest = Color(0xFF0F0D13), surfaceContainerLow = Color(0xFF1D1A22),
+    surfaceContainer = Color(0xFF221F28), surfaceContainerHigh = Color(0xFF2C2833),
+    surfaceContainerHighest = Color(0xFF37313E),
+    outline = Color(0xFF958D9C), outlineVariant = Color(0xFF49454E),
 )
 
 internal val LocalWallpaperColors = androidx.compose.runtime.staticCompositionLocalOf { false }
@@ -106,15 +110,16 @@ fun ABypassTheme(settings: AppSettings, content: @Composable () -> Unit) {
         if (dark) DarkColors else LightColors
     }
     androidx.compose.runtime.CompositionLocalProvider(LocalWallpaperColors provides (settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)) {
-        MaterialTheme(
+        MaterialExpressiveTheme(
+            motionScheme = MotionScheme.expressive(),
             colorScheme = animatedColors(colors),
             typography = AppTypography,
             shapes = Shapes(
                 extraSmall = RoundedCornerShape(4.dp),
                 small = RoundedCornerShape(8.dp),
                 medium = RoundedCornerShape(12.dp),
-                large = RoundedCornerShape(16.dp),
-                extraLarge = RoundedCornerShape(28.dp),
+                large = RoundedCornerShape(20.dp),
+                extraLarge = RoundedCornerShape(32.dp),
             ),
             content = content,
         )
@@ -145,5 +150,6 @@ private fun animatedColors(target: ColorScheme): ColorScheme {
 
 @Composable
 private fun motionColor(color: Color, role: String): Color = animateColorAsState(color, tween(260), label = role).value
+
 
 

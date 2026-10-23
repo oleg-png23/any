@@ -47,7 +47,7 @@ internal fun serviceStyle(id: String): ServiceStyle {
         "studio" -> colors.tertiaryContainer to colors.onTertiaryContainer
         "labs" -> colors.secondaryContainer to colors.onSecondaryContainer
         "gemini" -> colors.surfaceContainerHighest to colors.onSurface
-        else -> colors.primaryContainer to colors.onPrimaryContainer
+        else -> colors.primary to colors.onPrimary
     }
     return ServiceStyle(container, container, ink, ink)
 }
@@ -122,5 +122,6 @@ internal fun ServiceAvatar(id: String, modifier: Modifier = Modifier) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(serviceIcon(id), contentDescription = null, modifier = Modifier.requiredSize(28.dp).testTag("service-glyph-$id")) }
     }
 }
+
 
 

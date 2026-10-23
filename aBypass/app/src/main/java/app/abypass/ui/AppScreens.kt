@@ -1,13 +1,20 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 
 package app.abypass.ui
 
 import android.os.Build
+import androidx.compose.material3.*
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -77,35 +84,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.VerifiedUser
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.ui.graphics.Color
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -171,6 +150,7 @@ fun ABypassApp(
     var destinationName by rememberSaveable { mutableStateOf(Destination.SERVICES.name) }
     val destination = Destination.valueOf(destinationName)
     val screenState = rememberSaveableStateHolder()
+    val motion = MaterialTheme.motionScheme
     var showClearData by remember { mutableStateOf(false) }
     var showClearDiagnostics by remember { mutableStateOf(false) }
 
@@ -234,9 +214,9 @@ fun ABypassApp(
             containerColor = MaterialTheme.colorScheme.surface,
             bottomBar = {
                 if (!wide) {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+                    ShortNavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                         Destination.entries.forEach { item ->
-                            NavigationBarItem(
+                            ShortNavigationBarItem(
                                 selected = item == destination,
                                 onClick = { destinationName = item.name },
                                 icon = { NavigationIcon(item, item == destination) },
@@ -281,7 +261,10 @@ fun ABypassApp(
                         targetState = destination,
                         modifier = pageModifier,
                         transitionSpec = {
-                            (fadeIn(tween(240)) + slideInVertically(tween(240)) { it / 24 }) togetherWith fadeOut(tween(120))
+                            (fadeIn(motion.defaultEffectsSpec()) +
+                                slideInHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) it / 5 else -it / 5 }) togetherWith
+                                (fadeOut(motion.fastEffectsSpec()) +
+                                    slideOutHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) -it / 10 else it / 10 })
                         },
                         label = "screen-transition",
                     ) { target ->
@@ -311,7 +294,7 @@ private fun NavigationIcon(destination: Destination, selected: Boolean) {
         Destination.CHECKS -> Icons.Filled.VerifiedUser
         Destination.SETTINGS -> Icons.Filled.Settings
     } else destination.icon
-    val scale by animateFloatAsState(if (selected) 1.1f else 1f, spring(dampingRatio = 0.65f), label = "navigation-icon")
+    val scale by animateFloatAsState(if (selected) 1.1f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "navigation-icon")
     Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
 }
 
@@ -327,7 +310,7 @@ private fun ChecksScreen(
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier,
-        contentPadding = PaddingValues(24.dp),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { PageHeader(stringResource(R.string.checks_title), stringResource(R.string.checks_subtitle), Icons.Outlined.VerifiedUser) }
@@ -345,7 +328,7 @@ private fun ChecksScreen(
             Card(
                 onClick = { onOpenService(service) },
                 colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
-                shape = MaterialTheme.shapes.medium,
+                shape = MaterialTheme.shapes.extraLarge,
                 modifier = Modifier.animateItem(),
             ) {
                 Box {
@@ -423,146 +406,6 @@ private fun ChecksScreen(
 }
 
 @Composable
-private fun SettingsScreen(
-    settings: AppSettings,
-    onSettingsChange: (AppSettings) -> Unit,
-    onClearData: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    LazyColumn(
-        modifier,
-        contentPadding = PaddingValues(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        item { PageHeader(stringResource(R.string.settings_title), stringResource(R.string.settings_subtitle), Icons.Outlined.Settings) }
-        item { SectionLabel(stringResource(R.string.appearance), Icons.Outlined.Palette) }
-        item {
-            SettingsGroup {
-                ThemeOption(ThemeMode.SYSTEM, settings.theme, Icons.Outlined.BrightnessAuto, R.string.theme_system) { onSettingsChange(settings.copy(theme = it)) }
-                ThemeOption(ThemeMode.LIGHT, settings.theme, Icons.Outlined.LightMode, R.string.theme_light) { onSettingsChange(settings.copy(theme = it)) }
-                ThemeOption(ThemeMode.DARK, settings.theme, Icons.Outlined.DarkMode, R.string.theme_dark) { onSettingsChange(settings.copy(theme = it)) }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                SwitchSetting(
-                    title = stringResource(R.string.dynamic_colors),
-                    description = stringResource(if (Build.VERSION.SDK_INT >= 31) R.string.dynamic_colors_description else R.string.dynamic_colors_unavailable),
-                    icon = Icons.Outlined.Palette,
-                    checked = settings.dynamicColor,
-                    enabled = Build.VERSION.SDK_INT >= 31,
-                    onCheckedChange = { onSettingsChange(settings.copy(dynamicColor = it)) },
-                )
-            }
-        }
-        item { SectionLabel(stringResource(R.string.browsing), Icons.Outlined.DesktopWindows) }
-        item {
-            SettingsGroup {
-                SwitchSetting(
-                    title = stringResource(R.string.desktop_mode),
-                    description = stringResource(R.string.desktop_mode_description),
-                    icon = Icons.Outlined.DesktopWindows,
-                    checked = settings.desktopMode,
-                    onCheckedChange = { onSettingsChange(settings.copy(desktopMode = it)) },
-                )
-            }
-        }
-        item { SectionLabel(stringResource(R.string.compatibility), Icons.Outlined.VerifiedUser) }
-        item {
-            SettingsGroup {
-                Services.all.filter { it.hasAdapter }.forEachIndexed { index, service ->
-                    if (index != 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    SwitchSetting(
-                        title = service.name,
-                        description = stringResource(R.string.compatibility_setting_description),
-                        icon = serviceIcon(service.id),
-                        checked = service.id in settings.adapters,
-                        onCheckedChange = { enabled ->
-                            val adapters = if (enabled) settings.adapters + service.id else settings.adapters - service.id
-                            onSettingsChange(settings.copy(adapters = adapters))
-                        },
-                    )
-                }
-            }
-        }
-        item {
-            Text(stringResource(R.string.compatibility_setting_footer), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
-        }
-        item { SectionLabel(stringResource(R.string.data_and_privacy), Icons.Outlined.Lock) }
-        item {
-            SettingsGroup {
-                ListItem(
-                    modifier = Modifier.clickable(onClick = onClearData),
-                    headlineContent = { Text(stringResource(R.string.clear_data_action)) },
-                    supportingContent = { Text(stringResource(R.string.clear_data_subtitle)) },
-                    leadingContent = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
-                    colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                )
-            }
-        }
-        item {
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.secondaryContainer) {
-                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Outlined.Shield, contentDescription = null)
-                        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge)
-                    }
-                    Text(stringResource(R.string.about_description), style = MaterialTheme.typography.bodyMedium)
-                    Text(stringResource(R.string.about_independent), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsGroup(content: @Composable () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, shape = MaterialTheme.shapes.extraLarge) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), content = { content() })
-    }
-}
-
-@Composable
-private fun SettingIcon(icon: ImageVector) {
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = null) }
-    }
-}
-
-@Composable
-private fun ThemeOption(
-    value: ThemeMode,
-    selected: ThemeMode,
-    icon: ImageVector,
-    @StringRes label: Int,
-    onSelect: (ThemeMode) -> Unit,
-) {
-    ListItem(
-        modifier = Modifier.selectable(selected = value == selected, onClick = { onSelect(value) }, role = Role.RadioButton),
-        headlineContent = { Text(stringResource(label)) },
-        leadingContent = { SettingIcon(icon) },
-        trailingContent = { RadioButton(selected = value == selected, onClick = null) },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    )
-}
-
-@Composable
-private fun SwitchSetting(
-    title: String,
-    description: String,
-    icon: ImageVector,
-    checked: Boolean,
-    enabled: Boolean = true,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    ListItem(
-        modifier = Modifier.toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
-        headlineContent = { Text(title) },
-        supportingContent = { Text(description) },
-        leadingContent = { SettingIcon(icon) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    )
-}
-
-@Composable
 private fun BrowserScreen(
     browser: BrowserUiState,
     desktopMode: Boolean,
@@ -577,6 +420,9 @@ private fun BrowserScreen(
     browserContent: @Composable () -> Unit,
 ) {
     val service = Services.find(browser.serviceId)
+    val motion = MaterialTheme.motionScheme
+    val entrance = remember(browser.serviceId) { Animatable(0f) }
+    LaunchedEffect(browser.serviceId) { entrance.animateTo(1f, motion.slowSpatialSpec()) }
     val progress by animateFloatAsState(browser.progress.coerceIn(0, 100) / 100f, tween(220), label = "page-progress")
     var showPageInfo by remember(browser.serviceId) { mutableStateOf(false) }
     val pageSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -626,6 +472,10 @@ private fun BrowserScreen(
         }
     }
     Scaffold(
+        modifier = Modifier.graphicsLayer {
+            alpha = entrance.value.coerceIn(0f, 1f)
+            translationY = (1f - entrance.value) * 24.dp.toPx()
+        },
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -642,21 +492,17 @@ private fun BrowserScreen(
                     actions = { IconButton(onClick = { showPageInfo = true }) { Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.page_information)) } },
                 )
                 if (browser.loading) {
-                    if (browser.progress <= 0) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    else LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                    if (browser.progress <= 0) LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    else LinearWavyProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                 }
             }
         },
         bottomBar = {
-            Surface(modifier = Modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                HorizontalFloatingToolbar(expanded = true) {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.browser_back)) }
                     IconButton(onClick = onForward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.browser_forward)) }
-                    IconButton(onClick = if (browser.loading) onStopLoading else onReload) {
+                    FilledIconButton(onClick = if (browser.loading) onStopLoading else onReload) {
                         AnimatedContent(targetState = browser.loading, label = "stop-reload") { loading ->
                             Icon(if (loading) Icons.Outlined.Close else Icons.Outlined.Refresh,
                                 contentDescription = stringResource(if (loading) R.string.browser_stop_loading else R.string.browser_reload))
@@ -706,15 +552,13 @@ private fun BrowserScreen(
 }
 
 @Composable
-private fun PageHeader(title: String, subtitle: String, icon: ImageVector) {
-    Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+internal fun PageHeader(title: String, subtitle: String, icon: ImageVector) {
+    Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.secondaryContainer) {
-                Icon(icon, contentDescription = null, modifier = Modifier.padding(12.dp).size(28.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
             Text(title, style = MaterialTheme.typography.displaySmall, modifier = Modifier.weight(1f).semantics { heading() })
+            Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.primary)
         }
-        Text(subtitle, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -755,5 +599,6 @@ internal fun StatusLabel(status: CheckStatus, modifier: Modifier = Modifier, fal
 private fun formatTimestamp(time: Long): String = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(time))
 
 private fun domainOf(url: String): String = runCatching { URI(url).host }.getOrNull() ?: ""
+
 
 

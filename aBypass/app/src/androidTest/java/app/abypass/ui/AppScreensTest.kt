@@ -36,6 +36,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.abypass.R
@@ -300,6 +301,60 @@ class AppScreensTest {
         }
     }
 
+    @Test
+    fun phoneShowsAllFourServicesWithoutScrollingAndKeepsSearchAcrossNavigation() {
+        render()
+        for (service in Services.all) compose.onNodeWithText(service.name).assertIsDisplayed()
+        val flow = compose.onNodeWithTag("service-tile-flow").fetchSemanticsNode().boundsInRoot
+        val studio = compose.onNodeWithTag("service-tile-studio").fetchSemanticsNode().boundsInRoot
+        val labs = compose.onNodeWithTag("service-tile-labs").fetchSemanticsNode().boundsInRoot
+        assertEquals("First two services share a row", flow.top, studio.top, 1f)
+        assertTrue("The third service starts the next row", labs.top >= flow.bottom)
+        compose.onNodeWithText(text(R.string.search_services)).performTextInput("Flow")
+        navigateTo(R.string.nav_settings)
+        navigateTo(R.string.nav_services)
+        compose.onNodeWithText("Flow").assertIsDisplayed()
+        compose.onNodeWithText("AI Studio").assertDoesNotExist()
+    }
+
+    @Test
+    fun recordNativeMotionAndPreserveSelectionThroughTransitions() {
+        render()
+        compose.mainClock.autoAdvance = false
+        try {
+            val tile = compose.onNodeWithTag("service-tile-flow")
+            val resting = tile.fetchSemanticsNode().boundsInRoot.width
+            tile.performTouchInput { down(center) }
+            for (frame in 0 until 12) {
+                compose.mainClock.advanceTimeBy(32)
+                compose.saveScreenshot("motion-press-${frame.toString().padStart(2, '0')}")
+            }
+            assertTrue("A held tile must visibly respond", tile.fetchSemanticsNode().boundsInRoot.width < resting - 1f)
+            tile.performTouchInput { up() }
+            for (frame in 0 until 12) {
+                compose.mainClock.advanceTimeBy(32)
+                compose.saveScreenshot("motion-release-${frame.toString().padStart(2, '0')}")
+            }
+            compose.onNode(hasText(text(R.string.favorites)) and hasClickAction()).performClick()
+            for (frame in 0 until 20) {
+                compose.mainClock.advanceTimeBy(32)
+                compose.saveScreenshot("motion-filter-${frame.toString().padStart(2, '0')}")
+            }
+            compose.onNode(hasText(text(R.string.favorites)) and hasClickAction()).assertIsSelected()
+            navigateTo(R.string.nav_settings)
+            for (frame in 0 until 20) {
+                compose.mainClock.advanceTimeBy(32)
+                compose.saveScreenshot("motion-navigation-${frame.toString().padStart(2, '0')}")
+            }
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+        compose.onNodeWithText(text(R.string.appearance)).assertIsDisplayed()
+        navigateTo(R.string.nav_services)
+        compose.onNode(hasText(text(R.string.favorites)) and hasClickAction()).assertIsSelected()
+        compose.onNodeWithText("Google Labs").assertDoesNotExist()
+    }
+
     private fun render(
         initialSettings: AppSettings = AppSettings(theme = ThemeMode.LIGHT, dynamicColor = false),
         browser: BrowserUiState = BrowserUiState(),
@@ -378,5 +433,6 @@ internal fun ComposeContentTestRule.saveScreenshot(name: String): File {
     }
     return file
 }
+
 
 

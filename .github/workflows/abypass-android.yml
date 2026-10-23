@@ -38,16 +38,16 @@ jobs:
       - name: Collect APK and checksum
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/aBypass-0.1.7-arm64.apk
+          cp app/build/outputs/apk/debug/app-debug.apk out/aBypass-0.1.8-arm64.apk
           abypass_signer="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
-          "$abypass_signer" verify --verbose --print-certs out/aBypass-0.1.7-arm64.apk > out/APK-SIGNATURE.txt
+          "$abypass_signer" verify --verbose --print-certs out/aBypass-0.1.8-arm64.apk > out/APK-SIGNATURE.txt
           abypass_tools="${abypass_signer%/*}"
-          "$abypass_tools/aapt2" dump badging out/aBypass-0.1.7-arm64.apk > out/APK-INFO.txt
+          "$abypass_tools/aapt2" dump badging out/aBypass-0.1.8-arm64.apk > out/APK-INFO.txt
           cd out
-          sha256sum aBypass-0.1.7-arm64.apk > SHA256SUMS
+          sha256sum aBypass-0.1.8-arm64.apk > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: aBypass-0.1.7-arm64
+          name: aBypass-0.1.8-arm64
           path: aBypass/out/*
           if-no-files-found: error
           retention-days: 30
@@ -81,7 +81,7 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
-          disable-animations: true
+          disable-animations: false
           working-directory: aBypass
           script: |
             ./gradlew -PabypassAbis=x86_64 -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true connectedDebugAndroidTest --stacktrace || { adb pull /sdcard/Android/data/app.abypass/files/screenshots ui-screenshots; exit 1; }
@@ -97,6 +97,7 @@ jobs:
 
 
   publish:
+    if: false # Enable after screenshots and motion capture are reviewed.
     name: Publish direct APK download
     needs: [build, ui]
     runs-on: ubuntu-latest
@@ -109,7 +110,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: aBypass-0.1.7-arm64
+          name: aBypass-0.1.8-arm64
           path: package
       - name: Verify and publish this version
         working-directory: package
@@ -117,20 +118,21 @@ jobs:
         run: |
           set -euo pipefail
           sha256sum --check SHA256SUMS
-          if gh release view abypass-v0.1.7 --repo oleg-png23/any > /dev/null 2>&1; then
-            echo 'Version 0.1.7 already published; keeping its immutable release.'
+          if gh release view abypass-v0.1.8 --repo oleg-png23/any > /dev/null 2>&1; then
+            echo 'Version 0.1.8 already published; keeping its immutable release.'
             exit 0
           fi
           cat > RELEASE-NOTES.md <<'NOTES'
-          aBypass 0.1.7 — пробная сборка для Android 8.0+, ARM64.
+          aBypass 0.1.8 — пробная сборка для Android 8.0+, ARM64.
 
-          Улучшено управление загрузкой при слабом интернете: можно остановить загрузку, сохранить текущую страницу и повторить попытку. Остановка пользователем не записывается как ошибка сети или успешное открытие.
+          Полностью переработан нативный интерфейс в направлении Pixel и Material 3 Expressive: компактная сетка сервисов, связанные группы настроек, превью тем, динамические цвета и плавающая панель браузера.
 
-          Исправлена кнопка «Назад» во время подготовки браузера: возврат в каталог работает до появления сессии, поздний ответ подготовки не открывает сервис снова. Кнопка на панели доступна и без истории переходов.
+          Добавлены пружинные переходы между разделами, изменение формы плиток при нажатии, анимации фильтров и избранного, волнистый индикатор загрузки. Крупный шрифт использует одну колонку.
 
-          Проверены управление загрузкой, нативный браузер и интерфейс Material 3. AI Studio остаётся без подтверждённого исправления доступа.
+          Работа адаптера Flow сохранена. Поддержка доступа к AI Studio в этой версии не менялась.
 
           Подпись тестовой сборки отличается от предыдущих версий. Перед установкой потребуется удалить прежнюю версию; настройки и вход внутри приложения будут сброшены.
           NOTES
-          gh release create abypass-v0.1.7 aBypass-0.1.7-arm64.apk SHA256SUMS --repo oleg-png23/any --target "$GITHUB_SHA" --title 'aBypass 0.1.7' --prerelease --notes-file RELEASE-NOTES.md
+          gh release create abypass-v0.1.8 aBypass-0.1.8-arm64.apk SHA256SUMS --repo oleg-png23/any --target "$GITHUB_SHA" --title 'aBypass 0.1.8' --prerelease --notes-file RELEASE-NOTES.md
+
 
