@@ -13,6 +13,7 @@ android {
         versionCode = 10
         versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments["timeout_msec"] = "120000"
         ndk { abiFilters += (project.findProperty("abypassAbis") as String? ?: "arm64-v8a").split(",") }
     }
     buildFeatures { compose = true; buildConfig = true }

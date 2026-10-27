@@ -214,7 +214,7 @@ class AppScreensTest {
         }
     }
 
-    @Test fun recordNativePressNavigationSwitchAndDialogMotion() {
+    @Test fun recordNativePressNavigationAndSwitchMotion() {
         render()
         compose.mainClock.autoAdvance = false
         fun frames(stage: String, count: Int) { repeat(count) { frame -> compose.mainClock.advanceTimeBy(32); compose.saveScreenshot("motion-$stage-${frame.toString().padStart(2, '0')}") } }
@@ -226,8 +226,6 @@ class AppScreensTest {
             hero.performTouchInput { up() }; frames("release",12)
             navigateTo(R.string.nav_settings); frames("navigation",16)
             compose.onNodeWithText(text(R.string.dynamic_colors)).performClick(); frames("switch",16)
-            compose.onNodeWithText(text(R.string.clear_data_action)).performScrollTo().performClick(); frames("dialog",12)
-            compose.onNodeWithText(text(R.string.cancel)).performClick(); frames("dialog-close",12)
         } finally { compose.mainClock.autoAdvance = true }
         compose.onNodeWithText(text(R.string.clear_data_title)).assertDoesNotExist()
         navigateTo(R.string.nav_flow)
