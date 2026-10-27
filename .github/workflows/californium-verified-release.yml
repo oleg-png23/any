@@ -1,0 +1,100 @@
+name: Publish verified californium APK
+
+on:
+  push:
+    branches: ['codex/abypass-android']
+    paths: ['.github/workflows/californium-verified-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: californium-verified-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CALIFORNIUM_VALIDATED_RUN: '40587159521'
+      CALIFORNIUM_VALIDATED_SHA: '4cd9e0a31efc09d42e4fcf15c6bbfd80a0d50bc6'
+      CALIFORNIUM_APK_SHA256: 'bca6b5d9649738751d8e7ef463a0ae644e616241a0f557de0fb79a3345113e06'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify unchanged application sources and repaired collector syntax
+        run: |
+          git diff --exit-code "$CALIFORNIUM_VALIDATED_SHA" "$GITHUB_SHA" -- aBypass
+          bash -n .github/scripts/run-californium-ui.sh
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CALIFORNIUM_VALIDATED_RUN" > validated-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CALIFORNIUM_VALIDATED_RUN/jobs" > validated-jobs.json
+      - uses: actions/download-artifact@v4
+        with:
+          name: californium-0.2.0-arm64
+          run-id: '40587159521'
+          github-token: ${{ github.token }}
+          path: package
+      - uses: actions/download-artifact@v4
+        with:
+          name: californium-ui-checks
+          run-id: '40587159521'
+          github-token: ${{ github.token }}
+          path: validation
+      - name: Verify the existing APK and all emulator results
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, textwrap
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          run = json.loads(Path('validated-run.json').read_text())
+          assert run['head_sha'] == os.environ['CALIFORNIUM_VALIDATED_SHA']
+          assert run['head_branch'] == 'codex/abypass-android'
+          jobs = json.loads(Path('validated-jobs.json').read_text())['jobs']
+          build = next(x for x in jobs if x['name'] == 'Lint, tests and ARM64 APK')
+          assert build['conclusion'] == 'success'
+          # The emulator Gradle tests passed; the later collector's shell parsing failed.
+          # Check actual JUnit results and source identity before promoting the binary.
+          reports = list(Path('validation').rglob('TEST-*.xml'))
+          assert len(reports) == 1
+          root = ET.parse(reports[0]).getroot()
+          cases = list(root.iter('testcase'))
+          assert len(cases) == 16
+          assert root.get('failures') == '0' and root.get('errors') == '0' and root.get('skipped') == '0'
+          assert all(c.find('failure') is None and c.find('error') is None and c.find('skipped') is None for c in cases)
+          names = {c.get('name') for c in cases}
+          assert {'flowIsTheOnlyServiceAndOpeningFiresOnce', 'browserHostSurvivesProgressAndIsReleasedOnceAfterAnimatedClose', 'upgradeRemovesOtherServicesAndRetainsFlowPreferences', 'nativeEngineLoadsPageAndInstallsBundledAdapter', 'recordNativePressNavigationAndSwitchMotion'} <= names
+          apk = Path('package/californium-0.2.0-arm64.apk')
+          with apk.open('rb') as stream:
+              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          assert digest == os.environ['CALIFORNIUM_APK_SHA256']
+          assert Path('package/SHA256SUMS').read_text().split()[0] == digest
+          info = Path('package/APK-INFO.txt').read_text()
+          assert "application-label:'californium'" in info and "versionName='0.2.0'" in info
+          assert "native-code: 'arm64-v8a'" in info and "minSdkVersion:'26'" in info
+          assert 'v2): true' in Path('package/APK-SIGNATURE.txt').read_text()
+          workflow = Path('.github/workflows/abypass-android.yml').read_text()
+          notes = workflow.split("cat > RELEASE-NOTES.md <<'NOTES'\n", 1)[1].split('          NOTES', 1)[0]
+          Path('package/RELEASE-NOTES.md').write_text(textwrap.dedent(notes) + '\nПроверки: 34 теста адаптера, lint/JVM и 16/16 тестов эмулятора. Проверенный APK опубликован без пересборки; исходники приложения и тестов совпадают с проверенным запуском.\n')
+          print('Verified unchanged sources, signed APK, successful build and 16/16 emulator tests.')
+          PY
+      - name: Publish the verified binary
+        working-directory: package
+        run: |
+          sha256sum --check SHA256SUMS
+          if gh release view californium-v0.2.0 --repo oleg-png23/any > /dev/null 2>&1; then
+            gh api repos/oleg-png23/any/releases/tags/californium-v0.2.0 > existing-release.json
+            python3 - <<'PY'
+          import json, os
+          release = json.load(open('existing-release.json'))
+          apk = next(x for x in release['assets'] if x['name'] == 'californium-0.2.0-arm64.apk')
+          assert not release['draft'] and apk['state'] == 'uploaded'
+          assert apk['digest'] == 'sha256:' + os.environ['CALIFORNIUM_APK_SHA256']
+          PY
+            exit 0
+          fi
+          gh release create californium-v0.2.0 californium-0.2.0-arm64.apk SHA256SUMS --repo oleg-png23/any --target "$GITHUB_SHA" --title 'californium 0.2.0' --prerelease --notes-file RELEASE-NOTES.md
