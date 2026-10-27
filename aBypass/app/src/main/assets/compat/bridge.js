@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   if (window.top !== window ||
-      !(location.origin === "https://flow.google.com" || (location.origin === "https://labs.google" && /^\/(?:flow(?:\/|$)|fx\/tools\/flow(?:\/|$))/.test(location.pathname)))) return;
+      !(location.origin === "https://flow.google.com" || (location.origin === "https://labs.google" && /^\/(?:flow(?:\/|$)|fx\/(?:[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\/)?tools\/flow(?:\/|$))/.test(location.pathname)))) return;
   const CONFIG_EVENT = "abypass:config-changed";
   const DIAGNOSTIC_EVENT = "abypass:diagnostic";
   let nativePort = null;

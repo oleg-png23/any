@@ -5,7 +5,7 @@ import org.junit.Test
 
 class UrlRulesTest {
     @Test fun flowIncludesCanonicalAndLegacyProjectPaths() {
-        listOf("https://flow.google.com/", "https://flow.google.com/project/1", "https://labs.google/flow", "https://labs.google/flow/project/1", "https://labs.google/fx/tools/flow", "https://labs.google/fx/tools/flow/project/1").forEach {
+        listOf("https://flow.google.com/", "https://flow.google.com/project/1", "https://labs.google/flow", "https://labs.google/flow/project/1", "https://labs.google/fx/tools/flow", "https://labs.google/fx/tools/flow/project/1", "https://labs.google/fx/ru/tools/flow", "https://labs.google/fx/pt-BR/tools/flow/project/1").forEach {
             assertEquals("flow", UrlRules.adapterService(it))
             assertTrue(UrlRules.isServicePage("flow", it))
         }

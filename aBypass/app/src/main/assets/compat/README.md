@@ -9,3 +9,5 @@ The isolated world owns the native channel. Page events cannot enable the adapte
 Flow country field 30 and the known availability status positions are the supported response fields. RPC framing preserves Unicode length conventions, separators and complete-frame boundaries. Unrecognized schemas, excessive sizes or ambiguous framing are passed through. Age, payments, credits, subscription, quotas and manual logout are preserved. Diagnostic values come from fixed allowlists and never export arbitrary page content.
 
 Run `node --test tests/compat.test.cjs` from the project root. Android emulator tests separately check native extension installation and browser lifetime. Live account access and generation require a device check in Flow.
+
+Localized legacy Flow paths such as `/fx/ru/tools/flow` and `/fx/pt-BR/tools/flow` are included. Matching still ends at the Flow path boundary; other Labs tools are excluded.

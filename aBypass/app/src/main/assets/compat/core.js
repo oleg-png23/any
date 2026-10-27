@@ -26,7 +26,7 @@
     try {
       const url = new URL(input);
       if (!origins.has(url.origin) || url.username || url.password) return false;
-      return url.hostname === "flow.google.com" || /^\/(?:flow(?:\/|$)|fx\/tools\/flow(?:\/|$))/.test(url.pathname);
+      return url.hostname === "flow.google.com" || /^\/(?:flow(?:\/|$)|fx\/(?:[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*\/)?tools\/flow(?:\/|$))/.test(url.pathname);
     } catch (_) { return false; }
   }
 

@@ -795,7 +795,7 @@ test("manifest isolates privileged messaging and injects only into Flow document
   assert.equal(manifest.browser_specific_settings.gecko.id, "abypass-compat@app.abypass");
   assert.ok(manifest.permissions.includes("nativeMessagingFromContent"));
   for (const script of manifest.content_scripts) {
-    assert.deepEqual(script.matches.sort(), ["https://flow.google.com/*", "https://labs.google/flow", "https://labs.google/flow/*", "https://labs.google/fx/tools/flow", "https://labs.google/fx/tools/flow/*"].sort());
+    assert.deepEqual(script.matches.sort(), ["https://flow.google.com/*", "https://labs.google/flow", "https://labs.google/flow/*", "https://labs.google/fx/tools/flow", "https://labs.google/fx/tools/flow/*", "https://labs.google/fx/*/tools/flow", "https://labs.google/fx/*/tools/flow/*"].sort());
     assert.equal(script.run_at, "document_start");
     assert.equal(script.all_frames, false);
   }
@@ -813,5 +813,14 @@ test("manifest isolates privileged messaging and injects only into Flow document
     const before = win.fetch;
     assert.equal(install(win, core), null);
     assert.equal(win.fetch, before);
+  }
+});
+
+test("localized legacy Flow routes retain compatibility without including other tools", () => {
+  for (const locale of ["ru", "en", "pt-BR", "zh-Hant", "fil"]) {
+    const page = ORIGIN + "/fx/" + locale + "/tools/flow/project/1";
+    assert.equal(core.allowedDocument(page), true, page);
+    assert.equal(core.classifyRequest(API, page).kind, "json");
+    assert.equal(core.allowedDocument(ORIGIN + "/fx/" + locale + "/tools/other"), false);
   }
 });

@@ -33,3 +33,5 @@ Gradle 9.6.0, AGP 9.4.0, Kotlin 2.4.10, Compose BOM 2026.09.00, Material 3 1.5.0
 The emulator suite checks Flow-only navigation, browser host lifetime during progress and transitions, stop/retry/back, data clearing confirmation, page actions, themes and contrast, large text, launcher alignment and migration of old preferences. It needs no Google account or live Google access.
 
 Bundled [Material Symbols Rounded](https://github.com/google/material-design-icons) are Apache 2.0; their license is included under `assets/notices`. GeckoView is MPL 2.0, AndroidX is Apache 2.0. This is an independent app, unaffiliated with Google.
+
+Localized legacy Flow paths such as `/fx/ru/tools/flow` and `/fx/pt-BR/tools/flow` are included. Matching still ends at the Flow path boundary; other Labs tools are excluded.

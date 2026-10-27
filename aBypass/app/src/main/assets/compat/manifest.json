@@ -22,7 +22,9 @@
         "https://labs.google/flow",
         "https://labs.google/flow/*",
         "https://labs.google/fx/tools/flow",
-        "https://labs.google/fx/tools/flow/*"
+        "https://labs.google/fx/tools/flow/*",
+        "https://labs.google/fx/*/tools/flow",
+        "https://labs.google/fx/*/tools/flow/*"
       ],
       "js": [
         "bridge.js"
@@ -37,7 +39,9 @@
         "https://labs.google/flow",
         "https://labs.google/flow/*",
         "https://labs.google/fx/tools/flow",
-        "https://labs.google/fx/tools/flow/*"
+        "https://labs.google/fx/tools/flow/*",
+        "https://labs.google/fx/*/tools/flow",
+        "https://labs.google/fx/*/tools/flow/*"
       ],
       "js": [
         "core.js",

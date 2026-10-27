@@ -14,6 +14,6 @@ object UrlRules {
         }
     }.getOrNull()
 
-    private fun isFlowPath(path: String) = path == "/flow" || path.startsWith("/flow/") || path == "/fx/tools/flow" || path.startsWith("/fx/tools/flow/")
+    private fun isFlowPath(path: String) = path == "/flow" || path.startsWith("/flow/") || Regex("^/fx/(?:[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*/)?tools/flow(?:/|$)").containsMatchIn(path)
     fun isServicePage(service: String, url: String): Boolean = service == "flow" && adapterService(url) == "flow"
 }
