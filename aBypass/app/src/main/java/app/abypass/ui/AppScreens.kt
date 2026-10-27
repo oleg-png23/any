@@ -4,6 +4,9 @@ package app.abypass.ui
 
 import android.os.Build
 import androidx.compose.material3.*
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.heightIn
@@ -86,6 +89,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
@@ -123,13 +127,13 @@ import java.text.DateFormat
 import java.util.Date
 
 private enum class Destination(@StringRes val title: Int, val icon: Int) {
-    SERVICES(R.string.nav_services, R.drawable.symbol_grid_view),
+    FLOW(R.string.nav_flow, R.drawable.symbol_videocam),
     CHECKS(R.string.nav_checks, R.drawable.symbol_verified_user),
     SETTINGS(R.string.nav_settings, R.drawable.symbol_settings),
 }
 
 @Composable
-fun ABypassApp(
+fun CaliforniumApp(
     settings: AppSettings,
     records: Map<String, ServiceRecord>,
     events: List<DiagnosticEvent>,
@@ -148,53 +152,35 @@ fun ABypassApp(
     onClearDiagnostics: () -> Unit,
     browserContent: @Composable () -> Unit,
 ) {
-    var destinationName by rememberSaveable { mutableStateOf(Destination.SERVICES.name) }
-    val destination = Destination.valueOf(destinationName)
+    var destinationName by rememberSaveable { mutableStateOf(Destination.FLOW.name) }
+    val destination = runCatching { Destination.valueOf(destinationName) }.getOrDefault(Destination.FLOW)
     val screenState = rememberSaveableStateHolder()
     val motion = MaterialTheme.motionScheme
     var showClearData by remember { mutableStateOf(false) }
     var showClearDiagnostics by remember { mutableStateOf(false) }
 
-    if (showClearData) {
-        AlertDialog(
-            onDismissRequest = { showClearData = false },
-            icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
-            title = { Text(stringResource(R.string.clear_data_title)) },
-            text = { Text(stringResource(R.string.clear_data_description)) },
-            confirmButton = {
-                TextButton(onClick = { showClearData = false; onClearData() }) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.clear_data_confirm))
-                }
-            },
-            dismissButton = {
-                    TextButton(onClick = { showClearData = false }) { Icon(Icons.Outlined.Close, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.cancel)) }
-            },
-        )
-    }
-    if (showClearDiagnostics) {
-        AlertDialog(
-            onDismissRequest = { showClearDiagnostics = false },
-            icon = { Icon(Icons.Outlined.DeleteOutline, contentDescription = null) },
-            title = { Text(stringResource(R.string.clear_diagnostics_title)) },
-            text = { Text(stringResource(R.string.clear_diagnostics_description)) },
-            confirmButton = {
-                TextButton(onClick = { showClearDiagnostics = false; onClearDiagnostics() }) {
-                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.clear))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showClearDiagnostics = false }) { Text(stringResource(R.string.cancel)) }
-            },
-        )
-    }
+    if (showClearData) MotionConfirmation(
+        stringResource(R.string.clear_data_title), stringResource(R.string.clear_data_description),
+        stringResource(R.string.clear_data_confirm), stringResource(R.string.cancel), Icons.Outlined.DeleteOutline,
+        onConfirm = { showClearData = false; onClearData() }, onDismiss = { showClearData = false },
+    )
+    if (showClearDiagnostics) MotionConfirmation(
+        stringResource(R.string.clear_diagnostics_title), stringResource(R.string.clear_diagnostics_description),
+        stringResource(R.string.clear), stringResource(R.string.cancel), Icons.Outlined.DeleteOutline,
+        onConfirm = { showClearDiagnostics = false; onClearDiagnostics() }, onDismiss = { showClearDiagnostics = false },
+    )
 
-    if (browser.serviceId != null) {
+    // The transition key is only open/closed; progress and page changes never recreate GeckoView.
+    val retainedBrowser = remember { arrayOf(browser) }
+    SideEffect { if (browser.serviceId != null) retainedBrowser[0] = browser }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        AnimatedContent(browser.serviceId != null, modifier = Modifier.fillMaxSize(), transitionSpec = {
+            (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
+                (fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 1.04f))
+        }, label = "browser-navigation") { isOpen ->
+        if (isOpen) {
         BrowserScreen(
-            browser = browser,
+            browser = if (browser.serviceId != null) browser else retainedBrowser[0],
             desktopMode = settings.desktopMode,
             onClose = onCloseBrowser,
             onBack = onBack,
@@ -206,93 +192,99 @@ fun ABypassApp(
             onExportDiagnostics = onExportDiagnostics,
             browserContent = browserContent,
         )
-        return
-    }
-
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val wide = maxWidth >= 600.dp
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.surface,
-            bottomBar = {
-                if (!wide) {
-                    ShortNavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-                        Destination.entries.forEach { item ->
-                            ShortNavigationBarItem(
-                                selected = item == destination,
-                                onClick = { destinationName = item.name },
-                                icon = { NavigationIcon(item, item == destination) },
-                                label = { Text(stringResource(item.title)) },
-                            )
-                        }
-                    }
-                }
-            },
-        ) { insets ->
-            Row(Modifier.fillMaxSize().padding(insets)) {
-                if (wide) {
-                    NavigationRail(
-                        modifier = Modifier.fillMaxHeight(),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        header = {
-                            Surface(
-                                modifier = Modifier.padding(vertical = 24.dp).size(56.dp),
-                                shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Outlined.Shield, contentDescription = stringResource(R.string.app_name), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+    } else {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val wide = maxWidth >= 600.dp
+                Scaffold(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    bottomBar = {
+                        if (!wide) {
+                            ShortNavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+                                Destination.entries.forEach { item ->
+                                    val press = rememberPressFeedback()
+                                    ShortNavigationBarItem(
+                                        selected = item == destination,
+                                        interactionSource = press.source,
+                                        onClick = { destinationName = item.name },
+                                        icon = { NavigationIcon(item, item == destination, press.pressed) },
+                                        label = { Text(stringResource(item.title)) },
+                                    )
                                 }
                             }
-                        },
-                    ) {
-                        Destination.entries.forEach { item ->
-                            NavigationRailItem(
-                                selected = item == destination,
-                                onClick = { destinationName = item.name },
-                                icon = { NavigationIcon(item, item == destination) },
-                                label = { Text(stringResource(item.title)) },
-                                modifier = Modifier.padding(vertical = 8.dp),
-                            )
                         }
-                    }
-                }
-                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
-                    val pageModifier = Modifier.widthIn(max = 980.dp).fillMaxSize()
-                    AnimatedContent(
-                        targetState = destination,
-                        modifier = pageModifier,
-                        transitionSpec = {
-                            (fadeIn(motion.defaultEffectsSpec()) +
-                                slideInHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) it / 5 else -it / 5 }) togetherWith
-                                (fadeOut(motion.fastEffectsSpec()) +
-                                    slideOutHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) -it / 10 else it / 10 })
-                        },
-                        label = "screen-transition",
-                    ) { target ->
-                        screenState.SaveableStateProvider(target.name) {
-                            when (target) {
-                                Destination.SERVICES -> ServicesScreen(settings, records, onSettingsChange, onOpenService, Modifier.fillMaxSize())
-                                Destination.CHECKS -> ChecksScreen(
-                                    records, events, onOpenService, onExportDiagnostics,
-                                    { showClearDiagnostics = true }, Modifier.fillMaxSize(),
-                                )
-                                Destination.SETTINGS -> SettingsScreen(
-                                    settings, onSettingsChange, { showClearData = true }, Modifier.fillMaxSize(),
-                                )
+                    },
+                ) { insets ->
+                    Row(Modifier.fillMaxSize().padding(insets)) {
+                        if (wide) {
+                            NavigationRail(
+                                modifier = Modifier.fillMaxHeight(),
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                header = {
+                                    Surface(
+                                        modifier = Modifier.padding(vertical = 24.dp).size(56.dp),
+                                        shape = MaterialTheme.shapes.medium,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Outlined.Shield, contentDescription = stringResource(R.string.app_name), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        }
+                                    }
+                                },
+                            ) {
+                                Destination.entries.forEach { item ->
+                                    val press = rememberPressFeedback()
+                                    NavigationRailItem(
+                                        selected = item == destination,
+                                        interactionSource = press.source,
+                                        onClick = { destinationName = item.name },
+                                        icon = { NavigationIcon(item, item == destination, press.pressed) },
+                                        label = { Text(stringResource(item.title)) },
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                    )
+                                }
+                            }
+                        }
+                        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+                            val pageModifier = Modifier.widthIn(max = 980.dp).fillMaxSize()
+                            AnimatedContent(
+                                targetState = destination,
+                                modifier = pageModifier,
+                                transitionSpec = {
+                                    (fadeIn(motion.defaultEffectsSpec()) +
+                                        slideInHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) it / 5 else -it / 5 }) togetherWith
+                                        (fadeOut(motion.fastEffectsSpec()) +
+                                            slideOutHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) -it / 10 else it / 10 })
+                                },
+                                label = "screen-transition",
+                            ) { target ->
+                                screenState.SaveableStateProvider(target.name) {
+                                    when (target) {
+                                        Destination.FLOW -> FlowHomeScreen(settings, records["flow"] ?: ServiceRecord(), { onOpenService(Services.Flow) }, { destinationName = Destination.CHECKS.name }, Modifier.fillMaxSize())
+                                        Destination.CHECKS -> ChecksScreen(
+                                            records, events, onOpenService, onExportDiagnostics,
+                                            { showClearDiagnostics = true }, Modifier.fillMaxSize(),
+                                        )
+                                        Destination.SETTINGS -> SettingsScreen(
+                                            settings, onSettingsChange, { showClearData = true }, Modifier.fillMaxSize(),
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+        }
     }
 }
 
 @Composable
-private fun NavigationIcon(destination: Destination, selected: Boolean) {
+private fun NavigationIcon(destination: Destination, selected: Boolean, pressed: Boolean = false) {
     val icon = ImageVector.vectorResource(destination.icon)
-    val scale by animateFloatAsState(if (selected) 1.1f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "navigation-icon")
-    Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale })
+    val scale by animateFloatAsState(if (pressed) 0.85f else if (selected) 1.1f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "navigation-icon")
+    val rotation by animateFloatAsState(if (selected && destination == Destination.SETTINGS) 45f else 0f, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "navigation-turn")
+    Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale; rotationZ = rotation })
 }
 
 @Composable
@@ -304,6 +296,7 @@ private fun ChecksScreen(
     onClearDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val motion = MaterialTheme.motionScheme
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier,
@@ -322,11 +315,13 @@ private fun ChecksScreen(
         items(Services.all, key = { "record-${it.id}" }) { service ->
             val record = records[service.id] ?: ServiceRecord()
             val style = serviceStyle(service.id)
+            val press = rememberPressFeedback(0.98f)
             Card(
+                interactionSource = press.source,
                 onClick = { onOpenService(service) },
                 colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
                 shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.animateItem(),
+                modifier = Modifier.animateItem().then(press.modifier),
             ) {
                 Box {
                     ServiceBackdrop(service.id, style, Modifier.matchParentSize())
@@ -358,7 +353,7 @@ private fun ChecksScreen(
                         trailingContent = { Icon(if (detailsExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = stringResource(if (detailsExpanded) R.string.collapse else R.string.expand)) },
                         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     )
-                    AnimatedVisibility(visible = detailsExpanded, enter = expandVertically(tween(220)) + fadeIn(tween(180)), exit = shrinkVertically(tween(180)) + fadeOut(tween(120))) {
+                    AnimatedVisibility(visible = detailsExpanded, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
                         Column {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -370,7 +365,7 @@ private fun ChecksScreen(
                                         Spacer(Modifier.width(8.dp))
                                         Text(stringResource(R.string.export_diagnostics))
                                     }
-                                    IconButton(onClick = onClearDiagnostics, enabled = events.isNotEmpty()) {
+                                    MotionIconButton(onClick = onClearDiagnostics, enabled = events.isNotEmpty()) {
                                         Icon(Icons.Outlined.DeleteOutline, contentDescription = stringResource(R.string.clear_diagnostics_title))
                                     }
                                 }
@@ -418,8 +413,6 @@ private fun BrowserScreen(
 ) {
     val service = Services.find(browser.serviceId)
     val motion = MaterialTheme.motionScheme
-    val entrance = remember(browser.serviceId) { Animatable(0f) }
-    LaunchedEffect(browser.serviceId) { entrance.animateTo(1f, motion.slowSpatialSpec()) }
     val progress by animateFloatAsState(browser.progress.coerceIn(0, 100) / 100f, tween(220), label = "page-progress")
     var showPageInfo by remember(browser.serviceId) { mutableStateOf(false) }
     val pageSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -436,7 +429,7 @@ private fun BrowserScreen(
                         Text(service?.name ?: stringResource(R.string.page), style = MaterialTheme.typography.headlineSmall)
                         Text(domainOf(browser.url), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = { closeInfoThen {} }) { Icon(Icons.Outlined.Close, stringResource(R.string.got_it)) }
+                    MotionIconButton(onClick = { closeInfoThen {} }) { Icon(Icons.Outlined.Close, stringResource(R.string.got_it)) }
                 }
                 Text(stringResource(R.string.browser_page_info), style = MaterialTheme.typography.bodyMedium)
                 if (service?.hasAdapter == true) {
@@ -444,7 +437,6 @@ private fun BrowserScreen(
                 } else {
                     Text(stringResource(R.string.browser_no_adapter), style = MaterialTheme.typography.bodyMedium)
                 }
-                if (service?.id == "studio") Text(stringResource(R.string.studio_access_help), style = MaterialTheme.typography.bodyMedium)
                 HorizontalDivider()
                 ListItem(
                     onClick = { closeInfoThen(onExportDiagnostics) },
@@ -469,10 +461,6 @@ private fun BrowserScreen(
         }
     }
     Scaffold(
-        modifier = Modifier.graphicsLayer {
-            alpha = entrance.value.coerceIn(0f, 1f)
-            translationY = (1f - entrance.value) * 24.dp.toPx()
-        },
         topBar = {
             Column {
                 CenterAlignedTopAppBar(
@@ -485,10 +473,10 @@ private fun BrowserScreen(
                             Text(domainOf(browser.url), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     },
-                    navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_service)) } },
-                    actions = { IconButton(onClick = { showPageInfo = true }) { Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.page_information)) } },
+                    navigationIcon = { MotionIconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_service)) } },
+                    actions = { MotionIconButton(onClick = { showPageInfo = true }) { Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.page_information)) } },
                 )
-                if (browser.loading) {
+                AnimatedVisibility(browser.loading, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
                     if (browser.progress <= 0) LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
                     else LinearWavyProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
                 }
@@ -497,49 +485,38 @@ private fun BrowserScreen(
         bottomBar = {
             Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
                 HorizontalFloatingToolbar(expanded = true) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.browser_back)) }
-                    IconButton(onClick = onForward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.browser_forward)) }
-                    FilledIconButton(onClick = if (browser.loading) onStopLoading else onReload) {
-                        AnimatedContent(targetState = browser.loading, label = "stop-reload") { loading ->
+                    MotionIconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.browser_back)) }
+                    MotionIconButton(onClick = onForward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.browser_forward)) }
+                    MotionIconButton(onClick = if (browser.loading) onStopLoading else onReload, filled = true) {
+                        AnimatedContent(targetState = browser.loading, transitionSpec = { (scaleIn(motion.fastSpatialSpec(), initialScale = 0.4f) + fadeIn(motion.fastEffectsSpec())) togetherWith (scaleOut(motion.fastSpatialSpec(), targetScale = 0.4f) + fadeOut(motion.fastEffectsSpec())) }, label = "stop-reload") { loading ->
                             Icon(if (loading) Icons.Outlined.Close else Icons.Outlined.Refresh,
                                 contentDescription = stringResource(if (loading) R.string.browser_stop_loading else R.string.browser_reload))
                         }
                     }
-                    IconToggleButton(checked = desktopMode, onCheckedChange = { onDesktopToggle() }) {
+                    MotionIconToggleButton(checked = desktopMode, onCheckedChange = { onDesktopToggle() }) {
                         Icon(AppSymbols.DesktopWindows, contentDescription = stringResource(R.string.desktop_mode), tint = if (desktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    IconButton(onClick = onExternalOpen) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.browser_external)) }
+                    MotionIconButton(onClick = onExternalOpen) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.browser_external)) }
                 }
             }
         },
     ) { insets ->
         Column(Modifier.fillMaxSize().padding(insets)) {
-            AnimatedVisibility(browser.accessRestricted) {
-                Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Outlined.Info, null)
-                        Text(stringResource(R.string.studio_access_title), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                        IconButton(onClick = { showPageInfo = true }) {
-                            Icon(Icons.Outlined.HelpOutline, stringResource(R.string.studio_access_details))
-                        }
-                    }
-                }
-            }
-            AnimatedVisibility(browser.loadStopped) {
+            AnimatedVisibility(browser.loadStopped, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
                 Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Outlined.Info, null)
                         Text(stringResource(R.string.browser_loading_stopped), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = onReload) { Text(stringResource(R.string.retry)) }
+                        MotionTextButton(onClick = onReload) { Text(stringResource(R.string.retry)) }
                     }
                 }
             }
-            if (browser.error != null) {
+            AnimatedVisibility(browser.error != null, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
                 Surface(color = MaterialTheme.colorScheme.errorContainer) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)
                         Text(stringResource(R.string.browser_error), modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = onReload) { Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.retry)) }
+                        MotionTextButton(onClick = onReload) { Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.retry)) }
                     }
                 }
             }

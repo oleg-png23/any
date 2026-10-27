@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "aBypass regional compatibility",
-  "version": "1.0.3",
-  "description": "Local, opt-in regional compatibility for Flow and Google Labs.",
+  "name": "californium Flow compatibility",
+  "version": "1.0.4",
+  "description": "Local, opt-in compatibility for Google Flow.",
   "browser_specific_settings": {
     "gecko": {
       "id": "abypass-compat@app.abypass"
@@ -17,19 +17,35 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://flow.google.com/*", "https://labs.google/*"],
-      "js": ["bridge.js"],
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/flow",
+        "https://labs.google/flow/*",
+        "https://labs.google/fx/tools/flow",
+        "https://labs.google/fx/tools/flow/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
       "run_at": "document_start",
       "world": "ISOLATED",
       "all_frames": false
     },
     {
-      "matches": ["https://flow.google.com/*", "https://labs.google/*"],
-      "js": ["core.js", "runtime.js"],
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/flow",
+        "https://labs.google/flow/*",
+        "https://labs.google/fx/tools/flow",
+        "https://labs.google/fx/tools/flow/*"
+      ],
+      "js": [
+        "core.js",
+        "runtime.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN",
       "all_frames": false
     }
   ]
 }
-

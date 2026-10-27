@@ -7,14 +7,24 @@ import org.json.JSONObject
 class SettingsStore(context: Context) {
     private val prefs = context.getSharedPreferences("abypass", Context.MODE_PRIVATE)
 
+    init {
+        prefs.edit().apply {
+            remove("favorites")
+            listOf("studio", "labs", "gemini").forEach { id ->
+                remove("status_$id"); remove("checked_$id"); remove("changes_$id")
+            }
+            putStringSet("adapters", prefs.getStringSet("adapters", setOf("flow"))!!.intersect(setOf("flow")))
+        }.apply()
+        saveEvents(events())
+    }
+
     fun settings(): AppSettings {
         val defaults = AppSettings()
         return AppSettings(
             theme = runCatching { ThemeMode.valueOf(prefs.getString("theme", "SYSTEM")!!) }.getOrDefault(ThemeMode.SYSTEM),
             dynamicColor = prefs.getBoolean("dynamicColor", defaults.dynamicColor),
             desktopMode = prefs.getBoolean("desktop", false),
-            favorites = prefs.getStringSet("favorites", defaults.favorites)!!.toSet(),
-            adapters = prefs.getStringSet("adapters", defaults.adapters)!!.toSet(),
+            adapters = prefs.getStringSet("adapters", defaults.adapters)!!.intersect(setOf("flow")),
         )
     }
 
@@ -22,8 +32,7 @@ class SettingsStore(context: Context) {
         prefs.edit().putString("theme", settings.theme.name)
             .putBoolean("dynamicColor", settings.dynamicColor)
             .putBoolean("desktop", settings.desktopMode)
-            .putStringSet("favorites", settings.favorites)
-            .putStringSet("adapters", settings.adapters).apply()
+            .putStringSet("adapters", settings.adapters.intersect(setOf("flow"))).apply()
     }
 
     fun records(): Map<String, ServiceRecord> = Services.all.associate { service ->
@@ -45,12 +54,12 @@ class SettingsStore(context: Context) {
         (0 until array.length()).map { index ->
             val item = array.getJSONObject(index)
             DiagnosticEvent(item.getLong("time"), item.getString("service"), item.getString("message"))
-        }
+        }.filter { it.serviceId == "flow" }
     }.getOrDefault(emptyList())
 
     fun saveEvents(events: List<DiagnosticEvent>) {
         val array = JSONArray()
-        events.takeLast(150).forEach {
+        events.filter { it.serviceId == "flow" }.takeLast(150).forEach {
             array.put(JSONObject().put("time", it.time).put("service", it.serviceId).put("message", it.message))
         }
         prefs.edit().putString("events", array.toString()).apply()

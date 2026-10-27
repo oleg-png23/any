@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ABypass" parent="Theme.ABypass.Base">
+    <style name="Theme.Californium" parent="Theme.Californium.Base">
         <item name="android:windowSplashScreenBackground">#F4FBF5</item>
     </style>
 </resources>

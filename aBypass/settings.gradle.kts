@@ -11,5 +11,5 @@ dependencyResolutionManagement {
         }
     }
 }
-rootProject.name = "aBypass"
+rootProject.name = "californium"
 include(":app")

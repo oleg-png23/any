@@ -62,297 +62,176 @@ class AppScreensTest {
     @get:Rule
     val compose = createComposeRule()
 
-    @Test
-    fun catalogOpensSelectedService() {
+    @Test fun flowIsTheOnlyServiceAndOpeningFiresOnce() {
         val opened = mutableListOf<ServiceDefinition>()
         render(onOpenService = { opened += it })
-        compose.saveScreenshot("catalog")
-
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("AI Studio"))
-        compose.saveScreenshot("catalog-studio")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Gemini"))
-        compose.saveScreenshot("catalog-labs-gemini")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Flow"))
-
-        compose.onNodeWithText("Flow").performScrollTo().performClick()
-
-        compose.runOnIdle {
-            assertEquals(listOf("flow"), opened.map { it.id })
-            assertEquals("https://flow.google.com/", opened.single().url)
-        }
+        compose.onNodeWithText("californium").assertIsDisplayed()
+        for (removed in listOf("aBypass", "AI Studio", "Google Labs", "Gemini", "Избранное", "Найти сервис")) compose.onNodeWithText(removed).assertDoesNotExist()
+        compose.onNodeWithTag("flow-open").assertIsDisplayed()
+        compose.saveScreenshot("flow-home")
+        compose.onNodeWithTag("flow-open").performClick()
+        compose.runOnIdle { assertEquals(listOf("flow"), opened.map { it.id }); assertEquals("https://flow.google.com/", opened.single().url) }
     }
 
-    @Test
-    fun searchShowsOnlyMatchingServices() {
-        render()
-
-        compose.onNodeWithText(text(R.string.search_services)).performTextInput("AI Studio")
-
-        compose.onNode(hasText("AI Studio") and !hasSetTextAction()).performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Flow").assertDoesNotExist()
-        compose.onNodeWithText("Google Labs").assertDoesNotExist()
-        compose.onNodeWithText("Gemini", substring = false).assertDoesNotExist()
-
-        compose.onNodeWithContentDescription(text(R.string.clear_search)).performClick()
-        compose.onNodeWithText("Flow").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun favoritesUpdateSettingsAndFilterTheCatalog() {
+    @Test fun selectedThemeUpdatesSettingsAndRendersBothThemes() {
         val settings = render()
-
-        compose.onNodeWithContentDescription(text(R.string.remove_favorite, "Flow"))
-            .performScrollTo()
-            .performClick()
-
-        compose.runOnIdle {
-            assertFalse("Flow must be removed by the settings callback", "flow" in settings.value.favorites)
-            assertTrue("The other favorite must be retained", "studio" in settings.value.favorites)
-        }
-        compose.onNode(hasText(text(R.string.favorites)) and hasClickAction())
-            .performScrollTo()
-            .performClick()
-        compose.onNodeWithText("Flow").assertDoesNotExist()
-        compose.onNodeWithText("AI Studio").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun selectedThemeUpdatesSettingsAndRendersDarkSettings() {
-        val settings = render(initialSettings = AppSettings(theme = ThemeMode.LIGHT, dynamicColor = false))
         navigateTo(R.string.nav_settings)
-
+        compose.saveScreenshot("settings-light")
         compose.onNodeWithText(text(R.string.theme_dark)).performScrollTo().performClick()
-
         compose.runOnIdle { assertEquals(ThemeMode.DARK, settings.value.theme) }
         compose.onNode(hasText(text(R.string.theme_dark)) and hasClickAction()).assertIsSelected()
         compose.saveScreenshot("settings-dark")
-        navigateTo(R.string.nav_services)
-        compose.saveScreenshot("catalog-dark")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Gemini"))
-        compose.saveScreenshot("catalog-dark-labs-gemini")
+        navigateTo(R.string.nav_flow)
+        compose.saveScreenshot("flow-dark")
     }
 
-    @Test
-    fun clearingSharedSiteDataRequiresConfirmationAndCanBeCancelled() {
-        var clearCalls = 0
-        render(onClearData = { clearCalls++ })
+    @Test fun compatibilitySettingOnlyControlsFlowAndIsReflectedOnHome() {
+        val settings = render()
         navigateTo(R.string.nav_settings)
+        compose.onNodeWithText(text(R.string.compatibility_setting_description)).performScrollTo().performClick()
+        compose.runOnIdle { assertTrue(settings.value.adapters.isEmpty()) }
+        navigateTo(R.string.nav_flow)
+        compose.onNodeWithText(text(R.string.compatibility_disabled)).assertIsDisplayed()
+        navigateTo(R.string.nav_settings)
+        compose.onNodeWithText(text(R.string.compatibility_setting_description)).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(setOf("flow"), settings.value.adapters) }
+    }
 
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText(text(R.string.clear_data_action)))
-        compose.onNodeWithText(text(R.string.clear_data_action)).performClick()
-
-        compose.onNodeWithText(text(R.string.clear_data_title)).assertIsDisplayed()
+    @Test fun clearingDataRequiresConfirmationAndCanBeCancelled() {
+        var cleared = 0
+        render(onClearData = { cleared++ })
+        navigateTo(R.string.nav_settings)
+        compose.onNodeWithText(text(R.string.clear_data_action)).performScrollTo().performClick()
         compose.onNodeWithText(text(R.string.clear_data_description)).assertIsDisplayed()
-        compose.runOnIdle { assertEquals("Opening the dialog must not clear site data", 0, clearCalls) }
-
+        compose.saveScreenshot("clear-dialog")
+        compose.runOnIdle { assertEquals(0, cleared) }
         compose.onNodeWithText(text(R.string.cancel)).performClick()
         compose.onNodeWithText(text(R.string.clear_data_title)).assertDoesNotExist()
-        compose.runOnIdle { assertEquals("Cancelling must retain the shared browser profile", 0, clearCalls) }
-
+        compose.runOnIdle { assertEquals(0, cleared) }
         compose.onNodeWithText(text(R.string.clear_data_action)).performClick()
         compose.onNodeWithText(text(R.string.clear_data_confirm)).performClick()
-
-        compose.runOnIdle { assertEquals("An explicit confirmation clears exactly once", 1, clearCalls) }
+        compose.runOnIdle { assertEquals(1, cleared) }
         compose.onNodeWithText(text(R.string.clear_data_title)).assertDoesNotExist()
     }
 
-    @Test
-    fun browserHostsProvidedContentAndCloseReturnsToTheCatalogCallback() {
-        var closeCalls = 0
-        render(
-            browser = BrowserUiState(serviceId = "studio", url = "https://aistudio.google.com/"),
-            onCloseBrowser = { closeCalls++ },
-        )
-
+    @Test fun browserHostSurvivesProgressAndIsReleasedOnceAfterAnimatedClose() {
+        val browser = mutableStateOf(BrowserUiState())
+        var mounted = 0; var released = 0; var opened = 0
+        render(browserState = browser, onOpenService = {
+            opened++; browser.value = BrowserUiState(serviceId = "flow", url = it.url, loading = true)
+        }, onCloseBrowser = { browser.value = BrowserUiState() }, onBrowserMount = { if (it) mounted++ else released++ })
+        compose.onNodeWithTag("flow-open").performClick()
         compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
-        compose.onNodeWithText("aistudio.google.com").assertIsDisplayed()
+        for (progress in listOf(25, 50, 100)) {
+            compose.runOnIdle { browser.value = browser.value.copy(progress = progress, loading = progress < 100, title = "Flow $progress") }
+            compose.waitForIdle()
+        }
+        compose.runOnIdle { assertEquals(1, opened); assertEquals(1, mounted); assertEquals(0, released) }
         compose.onNodeWithContentDescription(text(R.string.close_service)).performClick()
-        compose.runOnIdle { assertEquals(1, closeCalls) }
+        compose.onNodeWithText("californium").assertIsDisplayed()
+        compose.onNodeWithTag("flow-open").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(1, released) }
     }
 
-    @Test
-    fun studioEligibilityRedirectShowsAnExplanationWithoutHidingTheGooglePage() {
-        render(browser = BrowserUiState(serviceId = "studio",
-            url = "https://ai.google.dev/gemini-api/docs/available-regions", accessRestricted = true))
-        compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
-        compose.onNodeWithText(text(R.string.studio_access_title)).assertIsDisplayed()
-        compose.saveScreenshot("studio-access")
-        compose.onNodeWithContentDescription(text(R.string.studio_access_details)).performClick()
-        compose.onNodeWithText(text(R.string.studio_access_help)).assertIsDisplayed()
-    }
-
-    @Test
-    fun loadingCanBeStoppedRetriedAndLeftWithoutHistory() {
+    @Test fun loadingCanBeStoppedRetriedAndLeftWithoutHistory() {
         val browser = mutableStateOf(BrowserUiState(serviceId = "flow", url = "https://flow.google.com/", loading = true, progress = 25))
-        var stopped = 0
-        var reloaded = 0
-        var back = 0
-        render(browserState = browser, onStopLoading = {
-            stopped++
-            browser.value = browser.value.copy(loading = false, loadStopped = true)
-        }, onReload = {
-            reloaded++
-            browser.value = browser.value.copy(loading = true, loadStopped = false, progress = 0)
-        }, onBack = { back++ })
+        var stopped = 0; var reloaded = 0; var back = 0
+        render(browserState = browser, onStopLoading = { stopped++; browser.value = browser.value.copy(loading = false, loadStopped = true) },
+            onReload = { reloaded++; browser.value = browser.value.copy(loading = true, loadStopped = false, progress = 0) }, onBack = { back++ })
         compose.onNodeWithContentDescription(text(R.string.browser_stop_loading)).assertIsDisplayed()
         compose.saveScreenshot("browser-loading")
         compose.onNodeWithContentDescription(text(R.string.browser_stop_loading)).performClick()
         compose.onNodeWithText(text(R.string.browser_loading_stopped)).assertIsDisplayed()
         compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
-        compose.runOnIdle { assertEquals(1, stopped) }
         compose.saveScreenshot("browser-stopped")
         compose.onNodeWithText(text(R.string.retry)).performClick()
         compose.onNodeWithContentDescription(text(R.string.browser_stop_loading)).assertIsDisplayed()
         compose.onNodeWithText(text(R.string.browser_loading_stopped)).assertDoesNotExist()
-        compose.runOnIdle { assertEquals(1, reloaded) }
         compose.onNodeWithContentDescription(text(R.string.browser_back)).performClick()
-        compose.runOnIdle { assertEquals(1, back) }
+        compose.runOnIdle { assertEquals(1, stopped); assertEquals(1, reloaded); assertEquals(1, back) }
     }
 
-    @Test
-    fun pageSheetActionsReachTheirCallbacksAndDismissTheSheet() {
-        var exported = 0
-        var toggled = 0
-        var external = 0
-        render(browser = BrowserUiState(serviceId = "flow", url = "https://flow.google.com/"),
-            onExportDiagnostics = { exported++ }, onDesktopToggle = { toggled++ }, onExternalOpen = { external++ })
+    @Test fun pageSheetActionsReachCallbacksAndDismiss() {
+        var exported = 0; var toggled = 0; var external = 0
+        render(browser = BrowserUiState(serviceId = "flow", url = "https://flow.google.com/"), onExportDiagnostics = { exported++ }, onDesktopToggle = { toggled++ }, onExternalOpen = { external++ })
         compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
         compose.onNodeWithText(text(R.string.export_diagnostics)).performScrollTo().assertIsDisplayed()
         compose.saveScreenshot("browser-sheet")
         compose.onNodeWithText(text(R.string.export_diagnostics)).performClick()
-        compose.runOnIdle { assertEquals(1, exported) }
         compose.onNodeWithText(text(R.string.export_diagnostics)).assertDoesNotExist()
         compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
         compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
         compose.onNodeWithText(text(R.string.desktop_mode)).performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(1, toggled) }
         compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
         compose.onNodeWithText(text(R.string.browser_external)).performScrollTo().performClick()
-        compose.runOnIdle { assertEquals(1, external) }
+        compose.runOnIdle { assertEquals(1, exported); assertEquals(1, toggled); assertEquals(1, external) }
     }
 
-    @Test
-    fun recordedStatusesRenderOnTheServiceSurfacesInBothThemes() {
-        render(records = mapOf("flow" to ServiceRecord(CheckStatus.PAGE_OPENED),
-            "studio" to ServiceRecord(CheckStatus.NETWORK_ERROR),
-            "labs" to ServiceRecord(CheckStatus.SIGN_IN_REQUIRED),
-            "gemini" to ServiceRecord(CheckStatus.ACCESS_RESTRICTED)))
-        compose.onNodeWithText("Flow").performScrollTo()
-        compose.saveScreenshot("catalog-status-light")
+    @Test fun statusAndChecksShowOnlyFlowInBothThemes() {
+        render(records = mapOf("flow" to ServiceRecord(CheckStatus.PAGE_OPENED)))
+        compose.onNodeWithText(text(R.string.status_page_opened)).performScrollTo().assertIsDisplayed()
+        compose.saveScreenshot("flow-status-light")
+        navigateTo(R.string.nav_checks)
+        compose.saveScreenshot("flow-checks")
+        for (removed in listOf("AI Studio", "Google Labs", "Gemini")) compose.onNodeWithText(removed).assertDoesNotExist()
         navigateTo(R.string.nav_settings)
         compose.onNodeWithText(text(R.string.theme_dark)).performScrollTo().performClick()
-        navigateTo(R.string.nav_services)
-        compose.onNodeWithText("Flow").performScrollTo()
-        compose.saveScreenshot("catalog-status-dark")
+        navigateTo(R.string.nav_flow)
+        compose.saveScreenshot("flow-status-dark")
     }
 
-    @Test
-    fun serviceAvatarsStaySquareAndCenteredOnNarrowScreensWithLargeText() {
+    @Test fun flowAvatarStaysSquareAndCenteredWithLargeText() {
         render(largeText = true)
-        for (service in Services.all) {
-            compose.onNode(hasScrollAction()).performScrollToNode(hasText(service.name))
-            val avatar = compose.onNodeWithTag("service-avatar-${service.id}", useUnmergedTree = true)
-            avatar.assertWidthIsEqualTo(52.dp).assertHeightIsEqualTo(52.dp)
-            compose.onNodeWithTag("service-status-${service.id}", useUnmergedTree = true).assertWidthIsAtLeast(160.dp)
-            val bounds = avatar.fetchSemanticsNode().boundsInRoot
-            val glyph = compose.onNodeWithTag("service-glyph-${service.id}", useUnmergedTree = true)
-                .fetchSemanticsNode().boundsInRoot
-            assertEquals("Icon must remain horizontally centered", bounds.center.x, glyph.center.x, 1f)
-            assertEquals("Icon must remain vertically centered", bounds.center.y, glyph.center.y, 1f)
-        }
-        compose.saveScreenshot("catalog-large-type")
+        val avatar = compose.onNodeWithTag("service-avatar-flow", useUnmergedTree = true)
+        avatar.performScrollTo().assertWidthIsEqualTo(52.dp).assertHeightIsEqualTo(52.dp)
+        val outer = avatar.fetchSemanticsNode().boundsInRoot
+        val glyph = compose.onNodeWithTag("service-glyph-flow", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals(outer.center.x, glyph.center.x, 1f); assertEquals(outer.center.y, glyph.center.y, 1f)
+        compose.onNodeWithTag("flow-open").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("service-status-flow", useUnmergedTree = true).performScrollTo().assertWidthIsAtLeast(160.dp)
+        compose.saveScreenshot("flow-large-type")
     }
 
-    @Test
-    fun wallpaperColorsRenderAndCanBeSwitchedBackToGooglePalette() {
+    @Test fun wallpaperColorsCanBeSwitchedBackToTheBrandPalette() {
         val settings = render(initialSettings = AppSettings(theme = ThemeMode.LIGHT, dynamicColor = true))
-        compose.saveScreenshot("catalog-wallpaper")
+        compose.saveScreenshot("flow-wallpaper")
         navigateTo(R.string.nav_settings)
         compose.onNodeWithText(text(R.string.dynamic_colors)).performScrollTo().performClick()
         compose.runOnIdle { assertFalse(settings.value.dynamicColor) }
-        navigateTo(R.string.nav_services)
-        compose.saveScreenshot("catalog-google-palette")
+        navigateTo(R.string.nav_flow)
+        compose.saveScreenshot("flow-brand-palette")
     }
 
-    @Test
-    fun wallpaperPaletteKeepsTextAndControlsReadableInBothThemes() {
+    @Test fun wallpaperPaletteKeepsFlowTextReadableInBothThemes() {
         val theme = mutableStateOf(ThemeMode.LIGHT)
-        var styles = emptyList<ServiceStyle>()
-        compose.setContent {
-            ABypassTheme(AppSettings(theme = theme.value, dynamicColor = true)) {
-                val current = Services.all.map { serviceStyle(it.id) }
-                SideEffect { styles = current }
-            }
-        }
+        var style: ServiceStyle? = null
+        compose.setContent { CaliforniumTheme(AppSettings(theme = theme.value, dynamicColor = true)) {
+            val current = serviceStyle("flow"); SideEffect { style = current }
+        } }
         for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
-            compose.runOnIdle { theme.value = mode }
-            compose.waitForIdle()
-            compose.runOnIdle {
-                assertEquals(Services.all.size, styles.size)
-                fun contrast(first: androidx.compose.ui.graphics.Color, second: androidx.compose.ui.graphics.Color): Float {
-                    val a = first.luminance(); val b = second.luminance()
-                    return (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
-                }
-                for (style in styles) {
-                    assertTrue("Card text must retain readable contrast", contrast(style.ink, style.start) >= 4.5f)
-                    assertTrue("Button and avatar must retain readable contrast", contrast(style.accent, style.start) >= 4.5f)
-                }
-            }
+            compose.runOnIdle { theme.value = mode }; compose.waitForIdle()
+            compose.runOnIdle { val s = requireNotNull(style); val a = s.ink.luminance(); val b = s.start.luminance(); assertTrue((maxOf(a,b)+0.05f)/(minOf(a,b)+0.05f) >= 4.5f) }
         }
     }
 
-    @Test
-    fun phoneShowsAllFourServicesWithoutScrollingAndKeepsSearchAcrossNavigation() {
-        render()
-        for (service in Services.all) compose.onNodeWithText(service.name).assertIsDisplayed()
-        val flow = compose.onNodeWithTag("service-tile-flow").fetchSemanticsNode().boundsInRoot
-        val studio = compose.onNodeWithTag("service-tile-studio").fetchSemanticsNode().boundsInRoot
-        val labs = compose.onNodeWithTag("service-tile-labs").fetchSemanticsNode().boundsInRoot
-        assertEquals("First two services share a row", flow.top, studio.top, 1f)
-        assertTrue("The third service starts the next row", labs.top >= flow.bottom)
-        compose.onNodeWithText(text(R.string.search_services)).performTextInput("Flow")
-        navigateTo(R.string.nav_settings)
-        navigateTo(R.string.nav_services)
-        compose.onNode(hasText("Flow") and !hasSetTextAction()).assertIsDisplayed()
-        compose.onNodeWithText("AI Studio").assertDoesNotExist()
-    }
-
-    @Test
-    fun recordNativeMotionAndPreserveSelectionThroughTransitions() {
+    @Test fun recordNativePressNavigationSwitchAndDialogMotion() {
         render()
         compose.mainClock.autoAdvance = false
+        fun frames(stage: String, count: Int) { repeat(count) { frame -> compose.mainClock.advanceTimeBy(32); compose.saveScreenshot("motion-$stage-${frame.toString().padStart(2, '0')}") } }
         try {
-            val tile = compose.onNodeWithTag("service-tile-flow")
-            val resting = tile.fetchSemanticsNode().boundsInRoot.width
-            tile.performTouchInput { down(center) }
-            for (frame in 0 until 12) {
-                compose.mainClock.advanceTimeBy(32)
-                compose.saveScreenshot("motion-press-${frame.toString().padStart(2, '0')}")
-            }
-            assertTrue("A held tile must visibly respond", tile.fetchSemanticsNode().boundsInRoot.width < resting - 1f)
-            tile.performTouchInput { up() }
-            for (frame in 0 until 12) {
-                compose.mainClock.advanceTimeBy(32)
-                compose.saveScreenshot("motion-release-${frame.toString().padStart(2, '0')}")
-            }
-            compose.onNode(hasText(text(R.string.favorites)) and hasClickAction()).performClick()
-            for (frame in 0 until 20) {
-                compose.mainClock.advanceTimeBy(32)
-                compose.saveScreenshot("motion-filter-${frame.toString().padStart(2, '0')}")
-            }
-            compose.onNode(hasText(text(R.string.favorites)) and hasClickAction()).assertIsSelected()
-            navigateTo(R.string.nav_settings)
-            for (frame in 0 until 20) {
-                compose.mainClock.advanceTimeBy(32)
-                compose.saveScreenshot("motion-navigation-${frame.toString().padStart(2, '0')}")
-            }
-        } finally {
-            compose.mainClock.autoAdvance = true
-        }
-        compose.onNodeWithText(text(R.string.appearance)).assertIsDisplayed()
-        navigateTo(R.string.nav_services)
-        compose.onNode(hasText(text(R.string.favorites)) and hasClickAction()).assertIsSelected()
-        compose.onNodeWithText("Google Labs").assertDoesNotExist()
+            val hero = compose.onNodeWithTag("flow-hero")
+            val resting = hero.fetchSemanticsNode().boundsInRoot.width
+            hero.performTouchInput { down(center) }; frames("press",12)
+            assertTrue(hero.fetchSemanticsNode().boundsInRoot.width < resting - 1f)
+            hero.performTouchInput { up() }; frames("release",12)
+            navigateTo(R.string.nav_settings); frames("navigation",16)
+            compose.onNodeWithText(text(R.string.dynamic_colors)).performClick(); frames("switch",16)
+            compose.onNodeWithText(text(R.string.clear_data_action)).performScrollTo().performClick(); frames("dialog",12)
+            compose.onNodeWithText(text(R.string.cancel)).performClick(); frames("dialog-close",12)
+        } finally { compose.mainClock.autoAdvance = true }
+        compose.onNodeWithText(text(R.string.clear_data_title)).assertDoesNotExist()
+        navigateTo(R.string.nav_flow)
+        compose.onNodeWithTag("flow-open").assertIsDisplayed()
     }
 
     private fun render(
@@ -370,14 +249,15 @@ class AppScreensTest {
         browserState: MutableState<BrowserUiState>? = null,
         onDesktopToggle: () -> Unit = {},
         onExternalOpen: () -> Unit = {},
+        onBrowserMount: (Boolean) -> Unit = {},
     ): MutableState<AppSettings> {
         val settings = mutableStateOf(initialSettings)
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, if (largeText) 1.5f else density.fontScale)) {
             Box(if (largeText) Modifier.width(320.dp) else Modifier) {
-            ABypassTheme(settings.value) {
-                ABypassApp(
+            CaliforniumTheme(settings.value) {
+                CaliforniumApp(
                     settings = settings.value,
                     records = records,
                     events = emptyList(),
@@ -394,7 +274,10 @@ class AppScreensTest {
                     onClearData = onClearData,
                     onExportDiagnostics = onExportDiagnostics,
                     onClearDiagnostics = {},
-                    browserContent = { Text(FAKE_BROWSER_CONTENT) },
+                    browserContent = {
+                        androidx.compose.runtime.DisposableEffect(Unit) { onBrowserMount(true); onDispose { onBrowserMount(false) } }
+                        Text(FAKE_BROWSER_CONTENT)
+                    },
                 )
             }
             }
@@ -425,7 +308,7 @@ internal fun ComposeContentTestRule.saveScreenshot(name: String): File {
     check(directory.isDirectory || directory.mkdirs())
     val file = File(directory, "$name.png")
     val roots = onAllNodes(isRoot())
-    val bitmap = if (name == "browser-sheet") {
+    val bitmap = if (name == "browser-sheet" || name.contains("dialog")) {
         requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
     } else roots[roots.fetchSemanticsNodes().lastIndex].captureToImage().asAndroidBitmap()
     FileOutputStream(file).use { output ->

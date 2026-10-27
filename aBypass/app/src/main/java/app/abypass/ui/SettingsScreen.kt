@@ -6,6 +6,13 @@ import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -78,7 +85,7 @@ internal fun SettingsScreen(settings: AppSettings, onSettingsChange: (AppSetting
                 Services.all.filter { it.hasAdapter }.forEachIndexed { index, service ->
                     SwitchSetting(service.name, stringResource(R.string.compatibility_setting_description), serviceIcon(service.id), service.id in settings.adapters,
                         onCheckedChange = { enabled -> onSettingsChange(settings.copy(adapters = if (enabled) settings.adapters + service.id else settings.adapters - service.id)) },
-                        accent = MaterialTheme.colorScheme.secondaryContainer, index = index, count = 2)
+                        accent = MaterialTheme.colorScheme.secondaryContainer, index = index, count = 1)
                 }
             }
         }
@@ -125,10 +132,11 @@ private fun SettingIcon(icon: ImageVector, accent: Color) {
 @Composable
 private fun ThemeTile(theme: ThemeMode, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
-    val corner by animateDpAsState(if (selected) 24.dp else 20.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "theme-shape")
+    val press = rememberPressFeedback(0.96f)
+    val corner by animateDpAsState(if (press.pressed) 32.dp else if (selected) 24.dp else 20.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "theme-shape")
     val background by animateColorAsState(if (selected) colors.primaryContainer else colors.surfaceContainerLowest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "theme-choice")
     Surface(
-        modifier = modifier.selectable(selected, role = Role.RadioButton, onClick = onClick),
+        modifier = modifier.then(press.modifier).selectable(selected, interactionSource = press.source, indication = LocalIndication.current, role = Role.RadioButton, onClick = onClick),
         color = background, contentColor = if (selected) colors.onPrimaryContainer else colors.onSurface,
         shape = RoundedCornerShape(corner), border = BorderStroke(2.dp, if (selected) colors.primary else Color.Transparent),
     ) {
@@ -158,6 +166,7 @@ private fun ThemePreview(theme: ThemeMode) {
 
 @Composable
 private fun SwitchSetting(title: String, description: String, icon: ImageVector, checked: Boolean, enabled: Boolean = true, onCheckedChange: (Boolean) -> Unit, accent: Color = MaterialTheme.colorScheme.primaryContainer, index: Int = 0, count: Int = 1) {
+    val background by animateColorAsState(if (checked) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "setting-background")
     SegmentedListItem(
         onClick = { onCheckedChange(!checked) }, enabled = enabled,
         shapes = ListItemDefaults.segmentedShapes(index, count),
@@ -165,6 +174,6 @@ private fun SwitchSetting(title: String, description: String, icon: ImageVector,
         content = { Text(title) }, supportingContent = { Text(description) },
         leadingContent = { SettingIcon(icon, accent) },
         trailingContent = { Switch(checked, onCheckedChange = null, enabled = enabled, thumbContent = { Icon(if (checked) Icons.Outlined.Check else Icons.Outlined.Close, null, Modifier.size(16.dp)) }) },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        colors = ListItemDefaults.colors(containerColor = background),
     )
 }

@@ -11,7 +11,7 @@ class DownloadNamesTest {
         assertFalse(DownloadNames.clean("\u0000bad\nname?.mp4").any { it.code < 32 || it == '?' })
     }
     @Test fun emptyNamesHaveUsableFallback() {
-        listOf(null, "", ".", "../", "  ").forEach { assertEquals("aBypass-download", DownloadNames.clean(it)) }
+        listOf(null, "", ".", "../", "  ").forEach { assertEquals("californium-download", DownloadNames.clean(it)) }
         assertEquals(120, DownloadNames.clean("a".repeat(1000)).length)
     }
 }

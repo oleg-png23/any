@@ -119,13 +119,7 @@ class BrowserEngine(
         session.promptDelegate = promptDelegate
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLocationChange(session: GeckoSession, url: String?, perms: MutableList<GeckoSession.PermissionDelegate.ContentPermission>, hasUserGesture: Boolean) {
-                val restricted = id == "studio" && UrlRules.isStudioAccessPage(url.orEmpty())
-                val previouslyRestricted = snapshots[session]?.accessRestricted == true
-                change(session) { it.copy(url = url.orEmpty(), accessRestricted = restricted) }
-                if (restricted && !previouslyRestricted) {
-                    onRecord(id, CheckStatus.ACCESS_RESTRICTED)
-                    onEvent(id, "AI Studio перенаправил на страницу доступности Google. Возможны ограничения региона, возраста или аккаунта.", false)
-                }
+                change(session) { it.copy(url = url.orEmpty()) }
                 ports.keys.filter { it.sender.session === session }.forEach { port ->
                     val adapterId = UrlRules.adapterService(url.orEmpty()).orEmpty()
                     ports[port] = adapterId
@@ -166,9 +160,7 @@ class BrowserEngine(
                 change(session) { it.copy(loading = false, progress = 100) }
                 if (success) {
                     val host = Uri.parse(snapshot.url).host.orEmpty()
-                    if (id == "studio" && UrlRules.isStudioAccessPage(snapshot.url)) {
-                        onRecord(id, CheckStatus.ACCESS_RESTRICTED)
-                    } else if (host == "accounts.google.com") {
+                    if (host == "accounts.google.com") {
                         onRecord(id, CheckStatus.SIGN_IN_REQUIRED)
                         onEvent(id, "Открыта страница входа Google.", false)
                     } else if (UrlRules.isServicePage(id, snapshot.url)) {

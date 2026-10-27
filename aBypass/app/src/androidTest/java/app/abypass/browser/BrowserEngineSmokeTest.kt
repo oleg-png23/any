@@ -22,7 +22,7 @@ import org.mozilla.geckoview.GeckoView
 class BrowserEngineSmokeTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun backDuringInitialOpenReturnsToTheCatalog() {
+    @Test fun backDuringInitialOpenReturnsHome() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         lateinit var engine: BrowserEngine
         compose.runOnUiThread {
@@ -50,10 +50,10 @@ class BrowserEngineSmokeTest {
             })
         }
         compose.runOnUiThread {
-            engine.open(ServiceDefinition("smoke", "Smoke", "", "data:text/html,<html><head><title>aBypass browser smoke</title></head><body><h1>aBypass</h1><p>Native browser is running</p></body></html>", false, "a"))
+            engine.open(ServiceDefinition("smoke", "Smoke", "", "data:text/html,<html><head><title>californium browser smoke</title></head><body><h1>californium</h1><p>Native browser is running</p></body></html>", false, "a"))
         }
         try {
-            compose.waitUntil(30_000) { engine.state.title == "aBypass browser smoke" && !engine.state.loading }
+            compose.waitUntil(30_000) { engine.state.title == "californium browser smoke" && !engine.state.loading }
             compose.runOnIdle {
                 assertNotNull(engine.activeSession)
                 assertTrue("Bundled extension must install successfully", engine.state.extensionReady)

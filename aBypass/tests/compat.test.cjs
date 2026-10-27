@@ -790,12 +790,12 @@ test("first native enabled answer may arrive while a post-timeout response clone
   assert.equal(original.bodyUsed, false);
 });
 
-test("manifest isolates privileged messaging and only declares the two supported HTTPS hosts", () => {
+test("manifest isolates privileged messaging and injects only into Flow documents", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json")));
   assert.equal(manifest.browser_specific_settings.gecko.id, "abypass-compat@app.abypass");
   assert.ok(manifest.permissions.includes("nativeMessagingFromContent"));
   for (const script of manifest.content_scripts) {
-    assert.deepEqual(script.matches.sort(), ["https://flow.google.com/*", "https://labs.google/*"]);
+    assert.deepEqual(script.matches.sort(), ["https://flow.google.com/*", "https://labs.google/flow", "https://labs.google/flow/*", "https://labs.google/fx/tools/flow", "https://labs.google/fx/tools/flow/*"].sort());
     assert.equal(script.run_at, "document_start");
     assert.equal(script.all_frames, false);
   }
@@ -803,3 +803,15 @@ test("manifest isolates privileged messaging and only declares the two supported
   assert.deepEqual(manifest.content_scripts.find(script => script.world === "MAIN").js, ["core.js", "runtime.js"]);
 });
 
+
+ test("removed Labs tools never install wrappers or classify availability calls", () => {
+  for (const page of [ORIGIN + "/", ORIGIN + "/fx/tools/other", ORIGIN + "/fx/tools/flow-other", "https://aistudio.google.com/", "https://gemini.google.com/"]) {
+    assert.equal(core.allowedDocument(page), false, page);
+    assert.equal(core.classifyRequest(API, page), null, page);
+    const win = makeWindow();
+    win.location.href = page;
+    const before = win.fetch;
+    assert.equal(install(win, core), null);
+    assert.equal(win.fetch, before);
+  }
+});

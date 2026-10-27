@@ -1,5 +1,13 @@
 # Изменения
 
+## californium 0.2.0
+
+- Renamed the app, launcher icon, diagnostic exports and APK to californium.
+- Removed all services except Flow, along with catalog search and favorites. Added a dedicated Flow home and migrated legacy preferences.
+- Restricted adapter documents to canonical and legacy Flow routes. Existing response transforms remain covered by regression tests.
+- Added expressive press feedback, browser open/close transitions, setting and status motion, animated confirmation dialogs and motion captures. Progress updates retain a single browser host.
+
+
 ## 0.1.8
 
 - Replaced the tall card feed with a compact two-column service grid inspired by Pixel quick access controls; large text uses a full-width column.

@@ -10,12 +10,8 @@ data class ServiceDefinition(
 )
 
 object Services {
-    val all = listOf(
-        ServiceDefinition("flow", "Flow", "Видео и изображения", "https://flow.google.com/", true, "F"),
-        ServiceDefinition("studio", "AI Studio", "Модели и инструменты Gemini", "https://aistudio.google.com/", false, "AI"),
-        ServiceDefinition("labs", "Google Labs", "Эксперименты Google", "https://labs.google/", true, "L"),
-        ServiceDefinition("gemini", "Gemini", "AI-ассистент", "https://gemini.google.com/", false, "G"),
-    )
+    val Flow = ServiceDefinition("flow", "Flow", "Видео и изображения", "https://flow.google.com/", true, "F")
+    val all = listOf(Flow)
     fun find(id: String?) = all.firstOrNull { it.id == id }
 }
 
@@ -32,8 +28,7 @@ data class AppSettings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = false,
     val desktopMode: Boolean = false,
-    val favorites: Set<String> = setOf("flow", "studio"),
-    val adapters: Set<String> = setOf("flow", "labs"),
+    val adapters: Set<String> = setOf("flow"),
 )
 
 data class DiagnosticEvent(val time: Long, val serviceId: String, val message: String)
@@ -48,7 +43,6 @@ data class BrowserUiState(
     val canGoForward: Boolean = false,
     val error: String? = null,
     val extensionReady: Boolean = false,
-    val accessRestricted: Boolean = false,
     val loadStopped: Boolean = false,
 )
 

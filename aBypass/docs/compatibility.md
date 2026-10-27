@@ -1,27 +1,9 @@
-# Состояние совместимости
+# Flow device verification
 
-Версия 0.1.0. Синтетические тесты подтверждают преобразование известных данных и поведение оболочки. Они не имитируют и не подтверждают реальный Google-аккаунт.
+californium supports one service: Google Flow. Canonical address: https://flow.google.com/. The adapter also recognizes Flow's legacy `/flow` and `/fx/tools/flow` routes on `labs.google`.
 
-| Сервис | Открытие | Региональный адаптер | Вход и основная функция |
-| --- | --- | --- | --- |
-| Flow | Реализовано в браузере | Экспериментальный, известные country-поля | Нужна проверка на устройстве с аккаунтом |
-| Google Labs | Реализован каталог Google Labs | Только известные country-поля и маршруты на labs.google | Нужна отдельная проверка каждого инструмента |
-| AI Studio | Реализовано в браузере | Не реализован | Нужна проверка |
-| Gemini | Реализовано в браузере | Не реализован | Нужна проверка |
+The UI distinguishes an unopened page, successful page loading, Google sign-in and network failure. Page loading is separate from the availability of generation. A user-requested load stop has its own state and is neither a successful access check nor a network failure.
 
-Не переносить статус одной функции на другой инструмент. HTTP 403, открытая страница или счётчик адаптера сами по себе не определяют причину ограничения и доступность генерации.
+To check a build, open Flow, sign in on Google's page if prompted, perform one generation operation and save the result. Record app version, Android version, date, network and the visible outcome. When troubleshooting, compare Flow compatibility enabled and disabled, refreshing the page after a setting change. Export diagnostics only when needed; the export excludes cookies, account tokens, page query parameters and prompts.
 
-## Таблица испытаний
-
-| Дата | Версия | Android / ABI | Регион / сеть | Сервис | Адаптер | Наблюдаемый результат |
-| --- | --- | --- | --- | --- | --- | --- |
-| — | 0.1.0 | — | — | — | — | Реальная операция Google с аккаунтом пока не проверена |
-
-## Официальные условия
-
-- [Flow](https://support.google.com/flow/answer/16353333?hl=en): отдельные требования к региону, аккаунту и плану; веб-версия ориентирована на Chromium.
-- [AI Studio / Gemini API](https://ai.google.dev/gemini-api/docs/available-regions): региональные и возрастные требования, включая подтверждение возраста.
-- [Labs/fx](https://labs.google/fx/faq): условия конкретного инструмента.
-- [OAuth](https://developers.google.com/identity/protocols/oauth2/policies): ограничения встроенных агентов при собственном OAuth.
-
-Условия меняются; перед подтверждением поддержки проверять текущие страницы и реальную операцию.
+CI verifies native UI and engine behavior without a Google account. It does not prove current Google account eligibility or generation access.

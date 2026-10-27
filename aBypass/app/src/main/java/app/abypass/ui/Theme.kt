@@ -86,7 +86,7 @@ private val AppTypography = Typography(
 )
 
 @Composable
-fun ABypassTheme(settings: AppSettings, content: @Composable () -> Unit) {
+fun CaliforniumTheme(settings: AppSettings, content: @Composable () -> Unit) {
     val dark = when (settings.theme) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false

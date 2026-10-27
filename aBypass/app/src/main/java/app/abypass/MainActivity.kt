@@ -17,8 +17,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.LaunchedEffect
 import app.abypass.browser.WebPromptHost
 import app.abypass.data.AppModel
-import app.abypass.ui.ABypassApp
-import app.abypass.ui.ABypassTheme
+import app.abypass.ui.CaliforniumApp
+import app.abypass.ui.CaliforniumTheme
 import org.mozilla.geckoview.GeckoView
 
 class MainActivity : ComponentActivity() {
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
             try { filePicker.launch(intent) } catch (_: ActivityNotFoundException) { model.prompts.receiveFiles(emptyList()); toast("На устройстве нет приложения для выбора файлов") }
         }
         setContent {
-            ABypassTheme(model.settings) {
+            CaliforniumTheme(model.settings) {
                 LaunchedEffect(model.notice) { model.notice?.let { toast(it); model.consumeNotice() } }
                 LaunchedEffect(model.saveDownload) {
                     val download = model.saveDownload
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 BackHandler(enabled = model.engine.state.serviceId != null) { model.engine.back() }
-                ABypassApp(
+                CaliforniumApp(
                     settings = model.settings,
                     records = model.records,
                     events = model.events,
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onExternalOpen = ::openExternal,
                     onClearData = { model.clearData { toast(if (it) "Данные сайтов очищены" else "Не удалось очистить данные. Повторите попытку.") } },
-                    onExportDiagnostics = { exportPicker.launch("aBypass-diagnostics.txt") },
+                    onExportDiagnostics = { exportPicker.launch("californium-diagnostics.txt") },
                     onClearDiagnostics = model::clearDiagnostics,
                     browserContent = {
                         AndroidView(

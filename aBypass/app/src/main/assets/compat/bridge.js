@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   if (window.top !== window ||
-      !["https://flow.google.com", "https://labs.google"].includes(location.origin)) return;
+      !(location.origin === "https://flow.google.com" || (location.origin === "https://labs.google" && /^\/(?:flow(?:\/|$)|fx\/tools\/flow(?:\/|$))/.test(location.pathname)))) return;
   const CONFIG_EVENT = "abypass:config-changed";
   const DIAGNOSTIC_EVENT = "abypass:diagnostic";
   let nativePort = null;

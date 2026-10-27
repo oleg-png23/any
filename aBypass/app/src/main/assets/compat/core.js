@@ -1,4 +1,4 @@
-/* aBypass — original regional response transforms. No network or browser state. */
+/* californium — Flow response transforms. No network or browser state. */
 (function (root, factory) {
   "use strict";
   const api = Object.freeze(factory());
@@ -22,6 +22,14 @@
     return origins.has(origin);
   }
 
+  function allowedDocument(input) {
+    try {
+      const url = new URL(input);
+      if (!origins.has(url.origin) || url.username || url.password) return false;
+      return url.hostname === "flow.google.com" || /^\/(?:flow(?:\/|$)|fx\/tools\/flow(?:\/|$))/.test(url.pathname);
+    } catch (_) { return false; }
+  }
+
   function classifyRequest(input, base) {
     try {
       const source = typeof input === "string" ? input :
@@ -30,7 +38,7 @@
       if (source === null) return null;
       const page = new URL(base);
       const target = new URL(source, page);
-      if (!origins.has(page.origin) || target.origin !== page.origin ||
+      if (!allowedDocument(page.href) || target.origin !== page.origin ||
           target.username || target.password) return null;
       const path = target.pathname;
       // Full path matches: a query containing a familiar endpoint is never enough.
@@ -248,6 +256,6 @@
     return unchanged(body);
   }
 
-  return { MAX_BYTES, allowedOrigin, classifyRequest, transform };
+  return { MAX_BYTES, allowedOrigin, allowedDocument, classifyRequest, transform };
 });
 

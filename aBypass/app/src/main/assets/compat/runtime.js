@@ -9,7 +9,7 @@
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function install(win, core, testHooks) {
   "use strict";
-  if (!win.location || !core.allowedOrigin(win.location.origin)) return null;
+  if (!win.location || !core.allowedDocument(win.location.href)) return null;
   const CONFIG_EVENT = "abypass:config-changed";
   const DIAGNOSTIC_EVENT = "abypass:diagnostic";
   const readConfig = testHooks && testHooks.readConfig ? testHooks.readConfig : () => {

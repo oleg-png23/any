@@ -145,10 +145,10 @@ class AppModel(application: Application) : AndroidViewModel(application) {
         }
     }
     fun exportText(): String = buildString {
-        appendLine("aBypass ${app.abypass.BuildConfig.VERSION_NAME}")
+        appendLine("californium ${app.abypass.BuildConfig.VERSION_NAME}")
         appendLine("Android API ${android.os.Build.VERSION.SDK_INT}")
         appendLine("Настольный режим: ${settings.desktopMode}")
-        appendLine("Адаптеры: ${settings.adapters.filter { it in setOf("flow", "labs") }.sorted().joinToString()}")
+        appendLine("Адаптеры: ${settings.adapters.filter { it in setOf("flow") }.sorted().joinToString()}")
         appendLine("Открытие страницы не подтверждает работу функций сервиса.")
         events.forEach { appendLine("${java.time.Instant.ofEpochMilli(it.time)} | ${it.serviceId} | ${it.message}") }
     }
