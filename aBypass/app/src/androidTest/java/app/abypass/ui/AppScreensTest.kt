@@ -37,6 +37,9 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.Role
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.abypass.R
@@ -286,7 +289,7 @@ class AppScreensTest {
     }
 
     private fun navigateTo(@StringRes resource: Int) {
-        compose.onNode(hasText(text(resource)) and hasClickAction()).performClick()
+        compose.onNode(hasText(text(resource)) and hasClickAction() and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).performClick()
     }
 
     private fun text(@StringRes resource: Int, vararg arguments: Any): String =
