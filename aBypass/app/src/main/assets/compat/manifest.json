@@ -1,0 +1,55 @@
+{
+  "manifest_version": 2,
+  "name": "californium Flow compatibility",
+  "version": "1.0.4",
+  "description": "Local, opt-in compatibility for Google Flow.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "abypass-compat@app.abypass"
+    }
+  },
+  "permissions": [
+    "geckoViewAddons",
+    "nativeMessaging",
+    "nativeMessagingFromContent",
+    "https://flow.google.com/*",
+    "https://labs.google/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/flow",
+        "https://labs.google/flow/*",
+        "https://labs.google/fx/tools/flow",
+        "https://labs.google/fx/tools/flow/*",
+        "https://labs.google/fx/*/tools/flow",
+        "https://labs.google/fx/*/tools/flow/*"
+      ],
+      "js": [
+        "bridge.js"
+      ],
+      "run_at": "document_start",
+      "world": "ISOLATED",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/flow",
+        "https://labs.google/flow/*",
+        "https://labs.google/fx/tools/flow",
+        "https://labs.google/fx/tools/flow/*",
+        "https://labs.google/fx/*/tools/flow",
+        "https://labs.google/fx/*/tools/flow/*"
+      ],
+      "js": [
+        "core.js",
+        "runtime.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    }
+  ]
+}

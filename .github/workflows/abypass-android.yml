@@ -1,0 +1,137 @@
+name: californium Android
+
+on:
+  push:
+    branches: [main, 'codex/abypass-*']
+    paths: ['aBypass/**', '.github/workflows/abypass-android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: californium-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint, tests and ARM64 APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: aBypass
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Adapter regression tests
+        run: node --test tests/compat.test.cjs
+      - name: Lint, JVM tests and debug APK
+        run: ./gradlew lintDebug testDebugUnitTest assembleDebug --stacktrace
+      - name: Collect APK and checksum
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk out/californium-0.2.0-arm64.apk
+          abypass_signer="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$abypass_signer" verify --verbose --print-certs out/californium-0.2.0-arm64.apk > out/APK-SIGNATURE.txt
+          abypass_tools="${abypass_signer%/*}"
+          "$abypass_tools/aapt2" dump badging out/californium-0.2.0-arm64.apk > out/APK-INFO.txt
+          cd out
+          sha256sum californium-0.2.0-arm64.apk > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: californium-0.2.0-arm64
+          path: aBypass/out/*
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: californium-build-reports
+          path: |
+            aBypass/app/build/reports/
+            aBypass/app/build/test-results/
+
+  ui:
+    name: Material 3 UI checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: false
+          working-directory: aBypass
+          script: bash ../.github/scripts/run-californium-ui.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: californium-ui-checks
+          path: |
+            aBypass/app/build/reports/androidTests/
+            aBypass/app/build/outputs/androidTest-results/
+            aBypass/ui-screenshots/
+            aBypass/ui-test-progress.txt
+            aBypass/ui-timeout.png
+
+
+  publish:
+    name: Publish direct APK download
+    needs: [build, ui]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: californium-0.2.0-arm64
+          path: package
+      - name: Verify and publish this version
+        working-directory: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum --check SHA256SUMS
+          if gh release view californium-v0.2.0 --repo oleg-png23/any > /dev/null 2>&1; then
+            echo 'Version 0.2.0 already published; keeping its immutable release.'
+            exit 0
+          fi
+          cat > RELEASE-NOTES.md <<'NOTES'
+          californium 0.2.0 — приложение для Google Flow, Android 8.0+, ARM64.
+
+          aBypass переименован в californium. Обновлены название, значок Cf и имя APK. В приложении остался только Flow: каталог, поиск, избранное и остальные сервисы удалены. Главный экран открывает Flow одним нажатием.
+
+          Добавлены пружинные анимации открытия и закрытия браузера, нажатий, навигации, настроек, статусов, индикаторов и диалогов. Изменения загрузки страницы сохраняют один браузерный хост. Анимации учитывают системную длительность.
+
+          Адаптер ограничен страницами Flow, включая его прежние адреса на labs.google. Генерация и доступ Google-аккаунта проверяются в самом Flow.
+
+          Подпись тестовой сборки отличается от прошлой версии. Перед установкой потребуется удалить прежнюю сборку; её настройки и входы сбросятся.
+          NOTES
+          gh release create californium-v0.2.0 californium-0.2.0-arm64.apk SHA256SUMS --repo oleg-png23/any --target "$GITHUB_SHA" --title 'californium 0.2.0' --prerelease --notes-file RELEASE-NOTES.md
+
+

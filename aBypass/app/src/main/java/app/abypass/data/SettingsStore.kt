@@ -1,0 +1,74 @@
+package app.abypass.data
+
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
+
+class SettingsStore(context: Context) {
+    private val prefs = context.getSharedPreferences("abypass", Context.MODE_PRIVATE)
+
+    init {
+        prefs.edit().apply {
+            remove("favorites")
+            listOf("studio", "labs", "gemini").forEach { id ->
+                remove("status_$id"); remove("checked_$id"); remove("changes_$id")
+            }
+            putStringSet("adapters", prefs.getStringSet("adapters", setOf("flow"))!!.intersect(setOf("flow")))
+        }.apply()
+        saveEvents(events())
+    }
+
+    fun settings(): AppSettings {
+        val defaults = AppSettings()
+        return AppSettings(
+            theme = runCatching { ThemeMode.valueOf(prefs.getString("theme", "SYSTEM")!!) }.getOrDefault(ThemeMode.SYSTEM),
+            dynamicColor = prefs.getBoolean("dynamicColor", defaults.dynamicColor),
+            desktopMode = prefs.getBoolean("desktop", false),
+            adapters = prefs.getStringSet("adapters", defaults.adapters)!!.intersect(setOf("flow")),
+        )
+    }
+
+    fun save(settings: AppSettings) {
+        prefs.edit().putString("theme", settings.theme.name)
+            .putBoolean("dynamicColor", settings.dynamicColor)
+            .putBoolean("desktop", settings.desktopMode)
+            .putStringSet("adapters", settings.adapters.intersect(setOf("flow"))).apply()
+    }
+
+    fun records(): Map<String, ServiceRecord> = Services.all.associate { service ->
+        service.id to ServiceRecord(
+            status = runCatching { CheckStatus.valueOf(prefs.getString("status_${service.id}", "NOT_CHECKED")!!) }.getOrDefault(CheckStatus.NOT_CHECKED),
+            checkedAt = prefs.getLong("checked_${service.id}", 0),
+            adapterChanges = prefs.getInt("changes_${service.id}", 0),
+        )
+    }
+
+    fun saveRecord(id: String, record: ServiceRecord) {
+        prefs.edit().putString("status_$id", record.status.name)
+            .putLong("checked_$id", record.checkedAt)
+            .putInt("changes_$id", record.adapterChanges).apply()
+    }
+
+    fun events(): List<DiagnosticEvent> = runCatching {
+        val array = JSONArray(prefs.getString("events", "[]"))
+        (0 until array.length()).map { index ->
+            val item = array.getJSONObject(index)
+            DiagnosticEvent(item.getLong("time"), item.getString("service"), item.getString("message"))
+        }.filter { it.serviceId == "flow" }
+    }.getOrDefault(emptyList())
+
+    fun saveEvents(events: List<DiagnosticEvent>) {
+        val array = JSONArray()
+        events.filter { it.serviceId == "flow" }.takeLast(150).forEach {
+            array.put(JSONObject().put("time", it.time).put("service", it.serviceId).put("message", it.message))
+        }
+        prefs.edit().putString("events", array.toString()).apply()
+    }
+
+    fun resetRecords() {
+        prefs.edit().apply {
+            Services.all.forEach { remove("status_${it.id}"); remove("checked_${it.id}"); remove("changes_${it.id}") }
+        }.apply()
+    }
+}
+
