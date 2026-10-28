@@ -61,6 +61,12 @@ class BrowserEngine(
 
     fun open(service: ServiceDefinition) {
         if (clearingData) return
+        // If the user disabled Flow's adapter, do not wait for the extension to install.
+        if (service.id == "flow" && service.id !in settings().adapters) {
+            pending = null
+            openSession(service)
+            return
+        }
         pendingGeneration = generation
         if (loadingExtension) { pending = service; showPreparing(service); return }
         if (extension == null) {

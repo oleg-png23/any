@@ -2,12 +2,6 @@
 
 package app.abypass.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,9 +28,7 @@ import app.abypass.data.ServiceRecord
 
 @Composable
 internal fun FlowHomeScreen(settings: AppSettings, record: ServiceRecord, onOpen: () -> Unit, onChecks: () -> Unit, modifier: Modifier = Modifier) {
-    val motion = MaterialTheme.motionScheme
     val largeType = LocalDensity.current.fontScale > 1.2f
-    val buttonPress = rememberPressFeedback(0.96f)
     val style = serviceStyle("flow")
     LazyColumn(modifier.testTag("flow-home"), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item(key = "brand") {
@@ -65,8 +57,8 @@ internal fun FlowHomeScreen(settings: AppSettings, record: ServiceRecord, onOpen
                                 Text(stringResource(R.string.flow_description), style = MaterialTheme.typography.bodyMedium)
                             }
                         }
-                        Button(onClick = onOpen, interactionSource = buttonPress.source,
-                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("flow-open").then(buttonPress.modifier),
+                        Button(onClick = onOpen,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("flow-open"),
                             colors = ButtonDefaults.buttonColors(containerColor = style.ink, contentColor = style.start),
                             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)) {
                             Text(stringResource(R.string.flow_open), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -74,34 +66,22 @@ internal fun FlowHomeScreen(settings: AppSettings, record: ServiceRecord, onOpen
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Bolt, null, Modifier.size(18.dp))
-                            AnimatedContent("flow" in settings.adapters, transitionSpec = {
-                                fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.fastEffectsSpec())
-                            }, label = "compatibility-setting") { enabled ->
-                                Text(stringResource(if (enabled) R.string.compatibility_enabled else R.string.compatibility_disabled), style = MaterialTheme.typography.labelMedium)
-                            }
+                            Text(stringResource(if ("flow" in settings.adapters) R.string.compatibility_enabled else R.string.compatibility_disabled), style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
             }
         }
         item(key = "last-result") {
-            val resultPress = rememberPressFeedback(0.98f)
-            Surface(onClick = onChecks, interactionSource = resultPress.source,
-                modifier = Modifier.fillMaxWidth().then(resultPress.modifier), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
+            Surface(onClick = onChecks,
+                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest) {
                 Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Outlined.Schedule, null, tint = MaterialTheme.colorScheme.primary)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(stringResource(R.string.last_open), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        AnimatedContent(record.status, transitionSpec = {
-                            (fadeIn(motion.defaultEffectsSpec()) + slideInVertically(motion.defaultSpatialSpec()) { it / 2 }) togetherWith
-                                (fadeOut(motion.fastEffectsSpec()) + slideOutVertically(motion.defaultSpatialSpec()) { -it / 2 })
-                        }, label = "flow-result") { status ->
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                StatusLabel(status, Modifier.fillMaxWidth().testTag("service-status-flow"))
-                                if (status == CheckStatus.PAGE_OPENED) {
-                                    Text(stringResource(R.string.status_generation_unchecked), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                            }
+                        StatusLabel(record.status, Modifier.fillMaxWidth().testTag("service-status-flow"))
+                        if (record.status == CheckStatus.PAGE_OPENED) {
+                            Text(stringResource(R.string.status_generation_unchecked), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Icon(Icons.AutoMirrored.Filled.ArrowForward, stringResource(R.string.nav_checks), Modifier.size(20.dp))

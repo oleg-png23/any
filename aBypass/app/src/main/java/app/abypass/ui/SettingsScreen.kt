@@ -3,16 +3,7 @@
 package app.abypass.ui
 
 import android.os.Build
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.LocalIndication
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,11 +122,10 @@ private fun SettingIcon(icon: ImageVector, accent: Color) {
 @Composable
 private fun ThemeTile(theme: ThemeMode, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
-    val press = rememberPressFeedback(0.96f)
-    val corner by animateDpAsState(if (press.pressed) 32.dp else if (selected) 24.dp else 20.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "theme-shape")
-    val background by animateColorAsState(if (selected) colors.primaryContainer else colors.surfaceContainerLowest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "theme-choice")
+    val corner = if (selected) 24.dp else 20.dp
+    val background = if (selected) colors.primaryContainer else colors.surfaceContainerLowest
     Surface(
-        modifier = modifier.then(press.modifier).selectable(selected, interactionSource = press.source, indication = LocalIndication.current, role = Role.RadioButton, onClick = onClick),
+        modifier = modifier.selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         color = background, contentColor = if (selected) colors.onPrimaryContainer else colors.onSurface,
         shape = RoundedCornerShape(corner), border = BorderStroke(2.dp, if (selected) colors.primary else Color.Transparent),
     ) {
@@ -166,7 +155,7 @@ private fun ThemePreview(theme: ThemeMode) {
 
 @Composable
 private fun SwitchSetting(title: String, description: String, icon: ImageVector, checked: Boolean, enabled: Boolean = true, onCheckedChange: (Boolean) -> Unit, accent: Color = MaterialTheme.colorScheme.primaryContainer, index: Int = 0, count: Int = 1) {
-    val background by animateColorAsState(if (checked) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "setting-background")
+    val background = if (checked) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerLowest
     SegmentedListItem(
         onClick = { onCheckedChange(!checked) }, enabled = enabled,
         shapes = ListItemDefaults.segmentedShapes(index, count),

@@ -4,42 +4,18 @@ package app.abypass.ui
 
 import android.os.Build
 import androidx.compose.material3.*
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -91,20 +66,16 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.heading
@@ -123,7 +94,6 @@ import app.abypass.data.ServiceDefinition
 import app.abypass.data.ServiceRecord
 import app.abypass.data.Services
 import app.abypass.data.ThemeMode
-import kotlinx.coroutines.launch
 import java.net.URI
 import java.text.DateFormat
 import java.util.Date
@@ -157,7 +127,6 @@ fun CaliforniumApp(
     var destinationName by rememberSaveable { mutableStateOf(Destination.FLOW.name) }
     val destination = runCatching { Destination.valueOf(destinationName) }.getOrDefault(Destination.FLOW)
     val screenState = rememberSaveableStateHolder()
-    val motion = MaterialTheme.motionScheme
     var showClearData by remember { mutableStateOf(false) }
     var showClearDiagnostics by remember { mutableStateOf(false) }
 
@@ -172,30 +141,24 @@ fun CaliforniumApp(
         onConfirm = { showClearDiagnostics = false; onClearDiagnostics() }, onDismiss = { showClearDiagnostics = false },
     )
 
-    // The transition key is only open/closed; progress and page changes never recreate GeckoView.
-    val retainedBrowser = remember { arrayOf(browser) }
-    SideEffect { if (browser.serviceId != null) retainedBrowser[0] = browser }
+    // Keep one browser host during progress updates, without animating the native view.
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        AnimatedContent(browser.serviceId != null, modifier = Modifier.fillMaxSize(), transitionSpec = {
-            (fadeIn(motion.defaultEffectsSpec()) + scaleIn(motion.defaultSpatialSpec(), initialScale = 0.94f)) togetherWith
-                (fadeOut(motion.fastEffectsSpec()) + scaleOut(motion.fastSpatialSpec(), targetScale = 1.04f))
-        }, label = "browser-navigation") { isOpen ->
-        if (isOpen) {
-        BrowserScreen(
-            browser = if (browser.serviceId != null) browser else retainedBrowser[0],
-            desktopMode = settings.desktopMode,
-            adapterEnabled = "flow" in settings.adapters,
-            onClose = onCloseBrowser,
-            onBack = onBack,
-            onForward = onForward,
-            onReload = onReload,
-            onStopLoading = onStopLoading,
-            onDesktopToggle = onDesktopToggle,
-            onExternalOpen = onExternalOpen,
-            onExportDiagnostics = onExportDiagnostics,
-            browserContent = browserContent,
-        )
-    } else {
+        if (browser.serviceId != null) {
+            BrowserScreen(
+                browser = browser,
+                desktopMode = settings.desktopMode,
+                adapterEnabled = "flow" in settings.adapters,
+                onClose = onCloseBrowser,
+                onBack = onBack,
+                onForward = onForward,
+                onReload = onReload,
+                onStopLoading = onStopLoading,
+                onDesktopToggle = onDesktopToggle,
+                onExternalOpen = onExternalOpen,
+                onExportDiagnostics = onExportDiagnostics,
+                browserContent = browserContent,
+            )
+        } else {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 val wide = maxWidth >= 600.dp
                 Scaffold(
@@ -204,12 +167,10 @@ fun CaliforniumApp(
                         if (!wide) {
                             ShortNavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
                                 Destination.entries.forEach { item ->
-                                    val press = rememberPressFeedback()
                                     ShortNavigationBarItem(
                                         selected = item == destination,
-                                        interactionSource = press.source,
                                         onClick = { destinationName = item.name },
-                                        icon = { NavigationIcon(item, item == destination, press.pressed) },
+                                        icon = { NavigationIcon(item) },
                                         label = { Text(stringResource(item.title)) },
                                     )
                                 }
@@ -235,12 +196,10 @@ fun CaliforniumApp(
                                 },
                             ) {
                                 Destination.entries.forEach { item ->
-                                    val press = rememberPressFeedback()
                                     NavigationRailItem(
                                         selected = item == destination,
-                                        interactionSource = press.source,
                                         onClick = { destinationName = item.name },
-                                        icon = { NavigationIcon(item, item == destination, press.pressed) },
+                                        icon = { NavigationIcon(item) },
                                         label = { Text(stringResource(item.title)) },
                                         modifier = Modifier.padding(vertical = 8.dp),
                                     )
@@ -248,20 +207,9 @@ fun CaliforniumApp(
                             }
                         }
                         Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
-                            val pageModifier = Modifier.widthIn(max = 980.dp).fillMaxSize()
-                            AnimatedContent(
-                                targetState = destination,
-                                modifier = pageModifier,
-                                transitionSpec = {
-                                    (fadeIn(motion.defaultEffectsSpec()) +
-                                        slideInHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) it / 5 else -it / 5 }) togetherWith
-                                        (fadeOut(motion.fastEffectsSpec()) +
-                                            slideOutHorizontally(motion.defaultSpatialSpec()) { if (targetState.ordinal > initialState.ordinal) -it / 10 else it / 10 })
-                                },
-                                label = "screen-transition",
-                            ) { target ->
-                                screenState.SaveableStateProvider(target.name) {
-                                    when (target) {
+                            Box(Modifier.widthIn(max = 980.dp).fillMaxSize()) {
+                                screenState.SaveableStateProvider(destination.name) {
+                                    when (destination) {
                                         Destination.FLOW -> FlowHomeScreen(settings, records["flow"] ?: ServiceRecord(), { onOpenService(Services.Flow) }, { destinationName = Destination.CHECKS.name }, Modifier.fillMaxSize())
                                         Destination.CHECKS -> ChecksScreen(
                                             records, events, onOpenService, onExportDiagnostics,
@@ -278,16 +226,13 @@ fun CaliforniumApp(
                 }
             }
         }
-        }
     }
 }
 
 @Composable
-private fun NavigationIcon(destination: Destination, selected: Boolean, pressed: Boolean = false) {
+private fun NavigationIcon(destination: Destination) {
     val icon = ImageVector.vectorResource(destination.icon)
-    val scale by animateFloatAsState(if (pressed) 0.85f else if (selected) 1.1f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "navigation-icon")
-    val rotation by animateFloatAsState(if (selected && destination == Destination.SETTINGS) 45f else 0f, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "navigation-turn")
-    Icon(icon, contentDescription = null, modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale; rotationZ = rotation })
+    Icon(icon, contentDescription = null)
 }
 
 @Composable
@@ -299,7 +244,6 @@ private fun ChecksScreen(
     onClearDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val motion = MaterialTheme.motionScheme
     var detailsExpanded by rememberSaveable { mutableStateOf(false) }
     LazyColumn(
         modifier,
@@ -310,13 +254,10 @@ private fun ChecksScreen(
         items(Services.all, key = { "record-${it.id}" }) { service ->
             val record = records[service.id] ?: ServiceRecord()
             val style = serviceStyle(service.id)
-            val press = rememberPressFeedback(0.98f)
             Card(
-                interactionSource = press.source,
                 onClick = { onOpenService(service) },
                 colors = CardDefaults.cardColors(containerColor = style.start, contentColor = style.ink),
                 shape = MaterialTheme.shapes.extraLarge,
-                modifier = Modifier.animateItem().then(press.modifier),
             ) {
                 Box {
                     ServiceBackdrop(service.id, style, Modifier.matchParentSize())
@@ -351,7 +292,7 @@ private fun ChecksScreen(
                         trailingContent = { Icon(if (detailsExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = stringResource(if (detailsExpanded) R.string.collapse else R.string.expand)) },
                         colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                     )
-                    AnimatedVisibility(visible = detailsExpanded, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
+                    if (detailsExpanded) {
                         Column {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -411,13 +352,11 @@ private fun BrowserScreen(
     browserContent: @Composable () -> Unit,
 ) {
     val service = Services.find(browser.serviceId)
-    val motion = MaterialTheme.motionScheme
-    val progress by animateFloatAsState(browser.progress.coerceIn(0, 100) / 100f, tween(220), label = "page-progress")
     var showPageInfo by remember(browser.serviceId) { mutableStateOf(false) }
     val pageSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val scope = rememberCoroutineScope()
     fun closeInfoThen(action: () -> Unit) {
-        scope.launch { pageSheet.hide(); showPageInfo = false; action() }
+        showPageInfo = false
+        action()
     }
     if (showPageInfo) {
         ModalBottomSheet(onDismissRequest = { showPageInfo = false }, sheetState = pageSheet) {
@@ -472,9 +411,11 @@ private fun BrowserScreen(
                     navigationIcon = { MotionIconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_service)) } },
                     actions = { MotionIconButton(onClick = { showPageInfo = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.page_information)) } },
                 )
-                AnimatedVisibility(browser.loading, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
-                    if (browser.progress <= 0) LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    else LinearWavyProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                Box(Modifier.fillMaxWidth().height(4.dp)) {
+                    if (browser.loading) {
+                        if (browser.progress <= 0) LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(4.dp))
+                        else LinearProgressIndicator(progress = { browser.progress.coerceIn(0, 100) / 100f }, modifier = Modifier.fillMaxWidth().height(4.dp))
+                    }
                 }
             }
         },
@@ -484,17 +425,15 @@ private fun BrowserScreen(
                     MotionIconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.browser_back)) }
                     MotionIconButton(onClick = onForward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.browser_forward)) }
                     MotionIconButton(onClick = if (browser.loading) onStopLoading else onReload, filled = true) {
-                        AnimatedContent(targetState = browser.loading, transitionSpec = { (scaleIn(motion.fastSpatialSpec(), initialScale = 0.4f) + fadeIn(motion.fastEffectsSpec())) togetherWith (scaleOut(motion.fastSpatialSpec(), targetScale = 0.4f) + fadeOut(motion.fastEffectsSpec())) }, label = "stop-reload") { loading ->
-                            Icon(if (loading) Icons.Outlined.Stop else Icons.Outlined.Refresh,
-                                contentDescription = stringResource(if (loading) R.string.browser_stop_loading else R.string.browser_reload))
-                        }
+                        Icon(if (browser.loading) Icons.Outlined.Stop else Icons.Outlined.Refresh,
+                            contentDescription = stringResource(if (browser.loading) R.string.browser_stop_loading else R.string.browser_reload))
                     }
                 }
             }
         },
     ) { insets ->
         Column(Modifier.fillMaxSize().padding(insets)) {
-            AnimatedVisibility(browser.loadStopped, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
+            if (browser.loadStopped) {
                 Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Outlined.Info, null)
@@ -503,7 +442,7 @@ private fun BrowserScreen(
                     }
                 }
             }
-            AnimatedVisibility(browser.error != null, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
+            if (browser.error != null) {
                 Surface(color = MaterialTheme.colorScheme.errorContainer) {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onErrorContainer)

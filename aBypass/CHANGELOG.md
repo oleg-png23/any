@@ -1,5 +1,12 @@
 # Изменения
 
+## californium 0.2.2
+
+- Replaced the fixed purple and lime palette with coordinated blue and neutral light and dark themes, retaining optional wallpaper colors.
+- Removed full-screen browser and navigation transitions, per-control scaling and simultaneous theme-color animations; browser progress no longer resizes the page.
+- Open the browser immediately without waiting for the compatibility extension when its Flow adapter is disabled.
+- Added coverage for browser host stability, saved navigation state, fixed-palette contrast and opening with the adapter disabled.
+
 ## californium 0.2.1
 
 - Simplified the Flow home screen and clarified that californium is independent and Google sign-in happens inside the app.

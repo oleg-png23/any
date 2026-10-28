@@ -7,15 +7,12 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
-import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -34,37 +31,37 @@ import app.abypass.data.AppSettings
 import app.abypass.data.ThemeMode
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF6550A5), onPrimary = Color.White,
-    primaryContainer = Color(0xFFE9DDFF), onPrimaryContainer = Color(0xFF251347),
-    secondary = Color(0xFF56632E), onSecondary = Color.White,
-    secondaryContainer = Color(0xFFDDEAAB), onSecondaryContainer = Color(0xFF1B2605),
-    tertiary = Color(0xFF7E5435), onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFFFDBC2), onTertiaryContainer = Color(0xFF2E1705),
+    primary = Color(0xFF2E57C7), onPrimary = Color.White,
+    primaryContainer = Color(0xFFDCE6FF), onPrimaryContainer = Color(0xFF102A61),
+    secondary = Color(0xFF50617A), onSecondary = Color.White,
+    secondaryContainer = Color(0xFFDCE6F6), onSecondaryContainer = Color(0xFF172D47),
+    tertiary = Color(0xFF35666A), onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFCDECEF), onTertiaryContainer = Color(0xFF0A3436),
     error = Color(0xFFB3261E), errorContainer = Color(0xFFF9DEDC),
-    background = Color(0xFFF7F2FA), onBackground = Color(0xFF1D1B20),
-    surface = Color(0xFFF7F2FA), onSurface = Color(0xFF1D1B20),
-    surfaceVariant = Color(0xFFE7E0EB), onSurfaceVariant = Color(0xFF49454E),
-    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFFFFBFF),
-    surfaceContainer = Color(0xFFF0EAF5), surfaceContainerHigh = Color(0xFFECE5F2),
-    surfaceContainerHighest = Color(0xFFE4DCEB),
-    outline = Color(0xFF7A747F), outlineVariant = Color(0xFFCBC3D1),
+    background = Color(0xFFF6F8FC), onBackground = Color(0xFF171B23),
+    surface = Color(0xFFF6F8FC), onSurface = Color(0xFF171B23),
+    surfaceVariant = Color(0xFFE3E8F2), onSurfaceVariant = Color(0xFF454D5B),
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF2F5FB),
+    surfaceContainer = Color(0xFFEDF1F8), surfaceContainerHigh = Color(0xFFE8EDF7),
+    surfaceContainerHighest = Color(0xFFE2E8F3),
+    outline = Color(0xFF747D8D), outlineVariant = Color(0xFFC4CBD9),
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFD0BCFF), onPrimary = Color(0xFF372371),
-    primaryContainer = Color(0xFF4E3A8B), onPrimaryContainer = Color(0xFFE9DDFF),
-    secondary = Color(0xFFBFCE91), onSecondary = Color(0xFF2B370F),
-    secondaryContainer = Color(0xFF414E20), onSecondaryContainer = Color(0xFFDDEAAB),
-    tertiary = Color(0xFFF2B991), onTertiary = Color(0xFF49290F),
-    tertiaryContainer = Color(0xFF633E22), onTertiaryContainer = Color(0xFFFFDBC2),
+    primary = Color(0xFFAFC6FF), onPrimary = Color(0xFF102A61),
+    primaryContainer = Color(0xFF29477D), onPrimaryContainer = Color(0xFFDCE6FF),
+    secondary = Color(0xFFB7C9E4), onSecondary = Color(0xFF203249),
+    secondaryContainer = Color(0xFF344A62), onSecondaryContainer = Color(0xFFD6E4F7),
+    tertiary = Color(0xFF94D2D3), onTertiary = Color(0xFF073739),
+    tertiaryContainer = Color(0xFF214E50), onTertiaryContainer = Color(0xFFB0EDEE),
     error = Color(0xFFF2B8B5), errorContainer = Color(0xFF8C1D18),
-    background = Color(0xFF141218), onBackground = Color(0xFFE8E0EC),
-    surface = Color(0xFF141218), onSurface = Color(0xFFE8E0EC),
-    surfaceVariant = Color(0xFF49454E), onSurfaceVariant = Color(0xFFCBC3D1),
-    surfaceContainerLowest = Color(0xFF0F0D13), surfaceContainerLow = Color(0xFF1D1A22),
-    surfaceContainer = Color(0xFF221F28), surfaceContainerHigh = Color(0xFF2C2833),
-    surfaceContainerHighest = Color(0xFF37313E),
-    outline = Color(0xFF958D9C), outlineVariant = Color(0xFF49454E),
+    background = Color(0xFF10151E), onBackground = Color(0xFFDFE4ED),
+    surface = Color(0xFF10151E), onSurface = Color(0xFFDFE4ED),
+    surfaceVariant = Color(0xFF444B58), onSurfaceVariant = Color(0xFFC5CCD9),
+    surfaceContainerLowest = Color(0xFF0B1017), surfaceContainerLow = Color(0xFF171C26),
+    surfaceContainer = Color(0xFF1A202B), surfaceContainerHigh = Color(0xFF242B36),
+    surfaceContainerHighest = Color(0xFF2F3643),
+    outline = Color(0xFF8E98A8), outlineVariant = Color(0xFF444B58),
 )
 
 internal val LocalWallpaperColors = androidx.compose.runtime.staticCompositionLocalOf { false }
@@ -112,7 +109,7 @@ fun CaliforniumTheme(settings: AppSettings, content: @Composable () -> Unit) {
     androidx.compose.runtime.CompositionLocalProvider(LocalWallpaperColors provides (settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)) {
         MaterialExpressiveTheme(
             motionScheme = MotionScheme.expressive(),
-            colorScheme = animatedColors(colors),
+            colorScheme = colors,
             typography = AppTypography,
             shapes = Shapes(
                 extraSmall = RoundedCornerShape(4.dp),
@@ -125,31 +122,6 @@ fun CaliforniumTheme(settings: AppSettings, content: @Composable () -> Unit) {
         )
     }
 }
-
-/** Animate only native theme tokens; browser views retain their own session and lifetime. */
-@Composable
-private fun animatedColors(target: ColorScheme): ColorScheme {
-    return target.copy(
-        primary = motionColor(target.primary, "primary"), onPrimary = motionColor(target.onPrimary, "on-primary"),
-        primaryContainer = motionColor(target.primaryContainer, "primary-container"), onPrimaryContainer = motionColor(target.onPrimaryContainer, "on-primary-container"),
-        secondary = motionColor(target.secondary, "secondary"), onSecondary = motionColor(target.onSecondary, "on-secondary"),
-        secondaryContainer = motionColor(target.secondaryContainer, "secondary-container"), onSecondaryContainer = motionColor(target.onSecondaryContainer, "on-secondary-container"),
-        tertiaryContainer = motionColor(target.tertiaryContainer, "tertiary-container"), onTertiaryContainer = motionColor(target.onTertiaryContainer, "on-tertiary-container"),
-        background = motionColor(target.background, "background"), onBackground = motionColor(target.onBackground, "on-background"),
-        surface = motionColor(target.surface, "surface"), onSurface = motionColor(target.onSurface, "on-surface"),
-        surfaceContainerLowest = motionColor(target.surfaceContainerLowest, "surface-lowest"),
-        surfaceContainerLow = motionColor(target.surfaceContainerLow, "surface-low"),
-        surfaceContainer = motionColor(target.surfaceContainer, "surface-container"),
-        surfaceContainerHigh = motionColor(target.surfaceContainerHigh, "surface-high"),
-        surfaceContainerHighest = motionColor(target.surfaceContainerHighest, "surface-highest"),
-        surfaceVariant = motionColor(target.surfaceVariant, "surface-variant"),
-        onSurfaceVariant = motionColor(target.onSurfaceVariant, "on-surface-variant"),
-        outline = motionColor(target.outline, "outline"), outlineVariant = motionColor(target.outlineVariant, "outline-variant"),
-    )
-}
-
-@Composable
-private fun motionColor(color: Color, role: String): Color = animateColorAsState(color, tween(260), label = role).value
 
 
 

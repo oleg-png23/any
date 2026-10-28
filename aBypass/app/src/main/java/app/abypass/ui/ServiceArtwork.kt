@@ -9,8 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -23,23 +22,17 @@ internal fun serviceIcon(id: String): ImageVector = AppSymbols.Videocam
 @Composable
 internal fun serviceStyle(id: String): ServiceStyle {
     val colors = MaterialTheme.colorScheme
-    return ServiceStyle(colors.primary, colors.primary, colors.onPrimary, colors.onPrimary)
+    val dark = colors.surface.luminance() < 0.5f
+    val background = if (dark) colors.primaryContainer else colors.primary
+    val content = if (dark) colors.onPrimaryContainer else colors.onPrimary
+    return ServiceStyle(background, background, content, content)
 }
 
-/** Local vector waves: no downloads or permanently running decorative animation. */
+/** A single static accent avoids redrawing multiple decorative paths during interaction. */
 @Composable
 internal fun ServiceBackdrop(id: String, style: ServiceStyle, modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val w = size.width; val h = size.height
-        repeat(5) { index ->
-            val y = h * (0.08f + index * 0.22f)
-            val wave = Path().apply {
-                moveTo(w * 0.58f, y + h * 0.20f)
-                cubicTo(w * 0.75f, y - h * 0.50f, w * 0.88f, y + h * 0.45f, w * 1.12f, y - h * 0.16f)
-            }
-            drawPath(wave, style.ink.copy(alpha = 0.10f), style = Stroke(2.dp.toPx()))
-        }
-        drawCircle(style.ink.copy(alpha = 0.06f), w * 0.22f, Offset(w * 0.96f, h * 0.12f))
+        drawCircle(style.ink.copy(alpha = 0.07f), size.minDimension * 0.45f, Offset(size.width, 0f))
     }
 }
 

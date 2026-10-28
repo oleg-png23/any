@@ -3,6 +3,8 @@ package app.abypass.ui
 import android.graphics.Bitmap
 import androidx.annotation.StringRes
 import androidx.compose.material3.Text
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.CompositionLocalProvider
@@ -121,7 +123,7 @@ class AppScreensTest {
         compose.onNodeWithText(text(R.string.clear_data_title)).assertDoesNotExist()
     }
 
-    @Test fun browserHostSurvivesProgressAndIsReleasedOnceAfterAnimatedClose() {
+    @Test fun browserHostSurvivesProgressAndIsReleasedOnceOnClose() {
         val browser = mutableStateOf(BrowserUiState())
         var mounted = 0; var released = 0; var opened = 0
         render(browserState = browser, onOpenService = {
@@ -129,9 +131,11 @@ class AppScreensTest {
         }, onCloseBrowser = { browser.value = BrowserUiState() }, onBrowserMount = { if (it) mounted++ else released++ })
         compose.onNodeWithTag("flow-open").performClick()
         compose.onNodeWithText(FAKE_BROWSER_CONTENT).assertIsDisplayed()
+        val initialTop = compose.onNodeWithText(FAKE_BROWSER_CONTENT).fetchSemanticsNode().boundsInRoot.top
         for (progress in listOf(25, 50, 100)) {
             compose.runOnIdle { browser.value = browser.value.copy(progress = progress, loading = progress < 100, title = "Flow $progress") }
             compose.waitForIdle()
+            assertEquals("Loading progress must not resize the browser", initialTop, compose.onNodeWithText(FAKE_BROWSER_CONTENT).fetchSemanticsNode().boundsInRoot.top, 0.1f)
         }
         compose.runOnIdle { assertEquals(1, opened); assertEquals(1, mounted); assertEquals(0, released) }
         compose.onNodeWithContentDescription(text(R.string.close_service)).performClick()
@@ -236,22 +240,41 @@ class AppScreensTest {
         }
     }
 
-    @Test fun recordNativePressNavigationAndSwitchMotion() {
+    @Test fun brandPaletteKeepsTextReadableInBothThemes() {
+        val theme = mutableStateOf(ThemeMode.LIGHT)
+        var colors: ColorScheme? = null
+        compose.setContent { CaliforniumTheme(AppSettings(theme = theme.value, dynamicColor = false)) {
+            val current = MaterialTheme.colorScheme
+            SideEffect { colors = current }
+        } }
+        for (mode in listOf(ThemeMode.LIGHT, ThemeMode.DARK)) {
+            compose.runOnIdle { theme.value = mode }; compose.waitForIdle()
+            compose.runOnIdle {
+                val c = requireNotNull(colors)
+                val pairs = listOf(
+                    c.primary to c.onPrimary,
+                    c.primaryContainer to c.onPrimaryContainer,
+                    c.secondaryContainer to c.onSecondaryContainer,
+                    c.tertiaryContainer to c.onTertiaryContainer,
+                    c.surface to c.onSurface,
+                    c.surface to c.onSurfaceVariant,
+                )
+                for ((background, foreground) in pairs) {
+                    val a = background.luminance(); val b = foreground.luminance()
+                    assertTrue("$mode text contrast must be at least 4.5:1", (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f) >= 4.5f)
+                }
+            }
+        }
+    }
+
+    @Test fun statusDetailsStayExpandedAcrossNavigation() {
         render()
-        compose.mainClock.autoAdvance = false
-        fun frames(stage: String, count: Int) { repeat(count) { frame -> compose.mainClock.advanceTimeBy(32); compose.saveScreenshot("motion-$stage-${frame.toString().padStart(2, '0')}") } }
-        try {
-            val button = compose.onNodeWithTag("flow-open")
-            val resting = button.fetchSemanticsNode().boundsInRoot.width
-            button.performTouchInput { down(center) }; frames("press",12)
-            assertTrue(button.fetchSemanticsNode().boundsInRoot.width < resting - 1f)
-            button.performTouchInput { up() }; frames("release",12)
-            navigateTo(R.string.nav_settings); frames("navigation",16)
-            compose.onNodeWithText(text(R.string.dynamic_colors)).performClick(); frames("switch",16)
-        } finally { compose.mainClock.autoAdvance = true }
-        compose.onNodeWithText(text(R.string.clear_data_title)).assertDoesNotExist()
-        navigateTo(R.string.nav_flow)
-        compose.onNodeWithTag("flow-open").assertIsDisplayed()
+        navigateTo(R.string.nav_checks)
+        compose.onNodeWithText(text(R.string.technical_details)).performClick()
+        compose.onNodeWithText(text(R.string.compatibility_limits)).assertIsDisplayed()
+        navigateTo(R.string.nav_settings)
+        navigateTo(R.string.nav_checks)
+        compose.onNodeWithText(text(R.string.compatibility_limits)).assertIsDisplayed()
     }
 
     private fun render(

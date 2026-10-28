@@ -11,6 +11,7 @@ import app.abypass.data.ServiceDefinition
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -21,6 +22,19 @@ import org.mozilla.geckoview.GeckoView
 @RunWith(AndroidJUnit4::class)
 class BrowserEngineSmokeTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun disabledFlowAdapterDoesNotDelayOpening() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        lateinit var engine: BrowserEngine
+        compose.runOnUiThread {
+            engine = BrowserEngine(context, { AppSettings(adapters = emptySet()) }, { _, _ -> }, { _, _, _ -> })
+            try {
+                engine.open(ServiceDefinition("flow", "Flow", "", "data:text/html,<html><body>Flow</body></html>", true, "F"))
+                assertNotNull("A disabled adapter must not delay creation of the browser session", engine.activeSession)
+                assertEquals("flow", engine.state.serviceId)
+            } finally { engine.closeAll() }
+        }
+    }
 
     @Test fun backDuringInitialOpenReturnsHome() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext

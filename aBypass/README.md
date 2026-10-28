@@ -6,11 +6,11 @@ The home screen identifies californium as an independent client, explains where 
 
 ## Download
 
-The latest published release is [californium 0.2.0 ARM64 APK](https://github.com/oleg-png23/any/releases/download/californium-v0.2.0/californium-0.2.0-arm64.apk). Version 0.2.1 builds are available from the matching CI run until a release is published. Android 8.0 or newer. Test builds from different CI runs use different debug certificates; uninstalling a prior build clears its site profile and app settings.
+The latest published release is [californium 0.2.0 ARM64 APK](https://github.com/oleg-png23/any/releases/download/californium-v0.2.0/californium-0.2.0-arm64.apk). Version 0.2.2 builds are available from the matching CI run until a release is published. Android 8.0 or newer. Test builds from different CI runs use different debug certificates; uninstalling a prior build clears its site profile and app settings.
 
 ## Interface and motion
 
-Native Material 3 Expressive with wallpaper colors, connected settings, a short navigation bar, a floating browser toolbar and wavy loading progress. The browser header displays the current host; its toolbar keeps back, forward and reload/stop, while the page menu contains desktop mode and external-browser actions. Expressive spatial springs drive presses and navigation. Effect specs drive fades and colors. The browser opens and closes with a container transition keyed only by open/closed state; page progress never recreates the native view. Theme choices, switches, results, banners, the page sheet and confirmation dialogs respond to interaction. Framework animation duration follows Android's system setting. Static vector art needs no network downloads and does not run idle animation loops.
+The fixed light and dark themes use a coordinated blue and neutral palette; wallpaper colors remain optional. The browser header displays the current host, and its toolbar keeps back, forward and reload/stop; the page menu contains desktop mode and external-browser actions. The native browser is not scaled during navigation, page progress keeps a fixed-height track, and the host survives progress updates. Controls use standard Material feedback without custom per-control scaling or animated theme tokens.
 
 ## Flow compatibility
 
@@ -28,9 +28,9 @@ node --test tests/compat.test.cjs
 ./gradlew -PabypassAbis=x86_64 connectedDebugAndroidTest
 ```
 
-Gradle 9.6.0, AGP 9.4.0, Kotlin 2.4.10, Compose BOM 2026.09.00, Material 3 1.5.0-beta02, GeckoView 158.0.20261021001945 and SDK 37.2 are pinned. The GitHub workflow builds ARM64, runs regressions and emulator checks with animations enabled, captures native motion frames and publishes the APK after successful checks.
+Gradle 9.6.0, AGP 9.4.0, Kotlin 2.4.10, Compose BOM 2026.09.00, Material 3 1.5.0-beta02, GeckoView 158.0.20261021001945 and SDK 37.2 are pinned. The GitHub workflow builds ARM64, runs regressions and emulator checks, and captures UI screenshots. Feature branches do not publish releases.
 
-The emulator suite checks Flow-only navigation, browser host lifetime during progress and transitions, stop/retry/back, data clearing confirmation, page actions, themes and contrast, large text, launcher alignment and migration of old preferences. It needs no Google account or live Google access.
+The emulator suite checks Flow-only navigation, browser host lifetime and layout during progress, opening without a disabled adapter, stop/retry/back, data clearing confirmation, page actions, themes and contrast, large text, launcher alignment and migration of old preferences. It needs no Google account or live Google access.
 
 Bundled [Material Symbols Rounded](https://github.com/google/material-design-icons) are Apache 2.0; their license is included under `assets/notices`. GeckoView is MPL 2.0, AndroidX is Apache 2.0. This is an independent app, unaffiliated with Google.
 
