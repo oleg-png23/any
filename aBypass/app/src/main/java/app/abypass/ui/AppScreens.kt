@@ -79,12 +79,14 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Login
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.ui.graphics.Color
@@ -182,6 +184,7 @@ fun CaliforniumApp(
         BrowserScreen(
             browser = if (browser.serviceId != null) browser else retainedBrowser[0],
             desktopMode = settings.desktopMode,
+            adapterEnabled = "flow" in settings.adapters,
             onClose = onCloseBrowser,
             onBack = onBack,
             onForward = onForward,
@@ -304,14 +307,6 @@ private fun ChecksScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { PageHeader(stringResource(R.string.checks_title), stringResource(R.string.checks_subtitle), AppSymbols.VerifiedUser) }
-        item {
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.secondaryContainer) {
-                Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Icon(Icons.Outlined.Info, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                    Text(stringResource(R.string.checks_explanation), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                }
-            }
-        }
         items(Services.all, key = { "record-${it.id}" }) { service ->
             val record = records[service.id] ?: ServiceRecord()
             val style = serviceStyle(service.id)
@@ -337,10 +332,13 @@ private fun ChecksScreen(
                                 }
                             }
                         }
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.open_named_service, service.name), tint = style.accent)
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.open_named_service, service.name), tint = style.accent)
                     }
                 }
             }
+        }
+        item {
+            Text(stringResource(R.string.checks_explanation), Modifier.padding(horizontal = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow), shape = MaterialTheme.shapes.large) {
@@ -401,6 +399,7 @@ private fun ChecksScreen(
 private fun BrowserScreen(
     browser: BrowserUiState,
     desktopMode: Boolean,
+    adapterEnabled: Boolean,
     onClose: () -> Unit,
     onBack: () -> Unit,
     onForward: () -> Unit,
@@ -432,7 +431,9 @@ private fun BrowserScreen(
                     MotionIconButton(onClick = { closeInfoThen {} }) { Icon(Icons.Outlined.Close, stringResource(R.string.got_it)) }
                 }
                 Text(stringResource(R.string.browser_page_info), style = MaterialTheme.typography.bodyMedium)
-                if (service?.hasAdapter == true) {
+                if (service?.hasAdapter == true && !adapterEnabled) {
+                    Text(stringResource(R.string.compatibility_disabled), style = MaterialTheme.typography.bodyMedium)
+                } else if (service?.hasAdapter == true) {
                     Text(stringResource(if (browser.extensionReady) R.string.browser_extension_ready else R.string.browser_extension_waiting), style = MaterialTheme.typography.bodyMedium)
                 } else {
                     Text(stringResource(R.string.browser_no_adapter), style = MaterialTheme.typography.bodyMedium)
@@ -465,16 +466,11 @@ private fun BrowserScreen(
             Column {
                 CenterAlignedTopAppBar(
                     title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(serviceIcon(service?.id.orEmpty()), contentDescription = null, modifier = Modifier.size(18.dp))
-                                Text(service?.name ?: stringResource(R.string.app_name), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text(domainOf(browser.url), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                        val fallback = service?.name ?: stringResource(R.string.page)
+                        Text(domainOf(browser.url).ifBlank { fallback }, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     navigationIcon = { MotionIconButton(onClick = onClose) { Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.close_service)) } },
-                    actions = { MotionIconButton(onClick = { showPageInfo = true }) { Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.page_information)) } },
+                    actions = { MotionIconButton(onClick = { showPageInfo = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.page_information)) } },
                 )
                 AnimatedVisibility(browser.loading, enter = expandVertically(motion.defaultSpatialSpec()) + fadeIn(motion.defaultEffectsSpec()), exit = shrinkVertically(motion.defaultSpatialSpec()) + fadeOut(motion.fastEffectsSpec())) {
                     if (browser.progress <= 0) LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -489,14 +485,10 @@ private fun BrowserScreen(
                     MotionIconButton(onClick = onForward, enabled = browser.canGoForward) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.browser_forward)) }
                     MotionIconButton(onClick = if (browser.loading) onStopLoading else onReload, filled = true) {
                         AnimatedContent(targetState = browser.loading, transitionSpec = { (scaleIn(motion.fastSpatialSpec(), initialScale = 0.4f) + fadeIn(motion.fastEffectsSpec())) togetherWith (scaleOut(motion.fastSpatialSpec(), targetScale = 0.4f) + fadeOut(motion.fastEffectsSpec())) }, label = "stop-reload") { loading ->
-                            Icon(if (loading) Icons.Outlined.Close else Icons.Outlined.Refresh,
+                            Icon(if (loading) Icons.Outlined.Stop else Icons.Outlined.Refresh,
                                 contentDescription = stringResource(if (loading) R.string.browser_stop_loading else R.string.browser_reload))
                         }
                     }
-                    MotionIconToggleButton(checked = desktopMode, onCheckedChange = { onDesktopToggle() }) {
-                        Icon(AppSymbols.DesktopWindows, contentDescription = stringResource(R.string.desktop_mode), tint = if (desktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    MotionIconButton(onClick = onExternalOpen) { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.browser_external)) }
                 }
             }
         },

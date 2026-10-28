@@ -1,5 +1,12 @@
 # Изменения
 
+## californium 0.2.1
+
+- Simplified the Flow home screen and clarified that californium is independent and Google sign-in happens inside the app.
+- Renamed the checks destination to status and distinguished a loaded page from verified access to generation. Adapter labels describe the setting separately from component readiness.
+- Made the current browser domain more prominent, separated stop from close and moved secondary actions into the page menu.
+- Added UI coverage for the disclosure, status, browser host, disabled adapter and the primary action at large text sizes. Feature-branch CI does not publish a release.
+
 ## californium 0.2.0
 
 - Renamed the app, launcher icon, diagnostic exports and APK to californium.

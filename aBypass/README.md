@@ -2,15 +2,15 @@
 
 Native Android app dedicated to Google Flow. The launcher label, in-app branding, Cf adaptive icon, diagnostic exports and APK use the californium name. The existing Android application ID is retained for compatibility.
 
-The home screen has one primary action: open Flow. Settings control theme, wallpaper colors, desktop mode and Flow compatibility. The checks page contains only Flow results and local diagnostics. The old multi-service catalog, search and favorites are removed. Existing preferences are migrated to retain Flow settings and discard removed-service records.
+The home screen identifies californium as an independent client, explains where Google sign-in happens, and has one primary action: open Flow. It labels the adapter as a setting and distinguishes a loaded page from verified access to generation. Settings control theme, wallpaper colors, desktop mode and Flow compatibility. The status page shows the last Flow page-load result and local diagnostics. The old multi-service catalog, search and favorites are removed. Existing preferences are migrated to retain Flow settings and discard removed-service records.
 
 ## Download
 
-[californium 0.2.0 ARM64 APK](https://github.com/oleg-png23/any/releases/download/californium-v0.2.0/californium-0.2.0-arm64.apk). Android 8.0 or newer. Test builds from different CI runs use different debug certificates; uninstalling a prior build clears its site profile and app settings.
+The latest published release is [californium 0.2.0 ARM64 APK](https://github.com/oleg-png23/any/releases/download/californium-v0.2.0/californium-0.2.0-arm64.apk). Version 0.2.1 builds are available from the matching CI run until a release is published. Android 8.0 or newer. Test builds from different CI runs use different debug certificates; uninstalling a prior build clears its site profile and app settings.
 
 ## Interface and motion
 
-Native Material 3 Expressive with wallpaper colors, connected settings, a short navigation bar, a floating browser toolbar and wavy loading progress. Expressive spatial springs drive presses, card shapes and navigation. Effect specs drive fades and colors. The browser opens and closes with a container transition keyed only by open/closed state; page progress never recreates the native view. Theme choices, switches, results, banners, the page sheet and confirmation dialogs respond to interaction. Framework animation duration follows Android's system setting. Static vector art needs no network downloads and does not run idle animation loops.
+Native Material 3 Expressive with wallpaper colors, connected settings, a short navigation bar, a floating browser toolbar and wavy loading progress. The browser header displays the current host; its toolbar keeps back, forward and reload/stop, while the page menu contains desktop mode and external-browser actions. Expressive spatial springs drive presses and navigation. Effect specs drive fades and colors. The browser opens and closes with a container transition keyed only by open/closed state; page progress never recreates the native view. Theme choices, switches, results, banners, the page sheet and confirmation dialogs respond to interaction. Framework animation duration follows Android's system setting. Static vector art needs no network downloads and does not run idle animation loops.
 
 ## Flow compatibility
 

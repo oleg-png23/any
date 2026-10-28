@@ -69,6 +69,9 @@ class AppScreensTest {
         val opened = mutableListOf<ServiceDefinition>()
         render(onOpenService = { opened += it })
         compose.onNodeWithText("californium").assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.app_tagline)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.app_sign_in_info)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.compatibility_enabled)).assertIsDisplayed()
         for (removed in listOf("aBypass", "AI Studio", "Google Labs", "Gemini", "Избранное", "Найти сервис")) compose.onNodeWithText(removed).assertDoesNotExist()
         compose.onNodeWithTag("flow-open").assertIsDisplayed()
         compose.saveScreenshot("flow-home")
@@ -157,6 +160,8 @@ class AppScreensTest {
     @Test fun pageSheetActionsReachCallbacksAndDismiss() {
         var exported = 0; var toggled = 0; var external = 0
         render(browser = BrowserUiState(serviceId = "flow", url = "https://flow.google.com/"), onExportDiagnostics = { exported++ }, onDesktopToggle = { toggled++ }, onExternalOpen = { external++ })
+        compose.onNodeWithContentDescription(text(R.string.browser_external)).assertDoesNotExist()
+        compose.onNodeWithContentDescription(text(R.string.desktop_mode)).assertDoesNotExist()
         compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
         compose.onNodeWithText(text(R.string.export_diagnostics)).performScrollTo().assertIsDisplayed()
         compose.saveScreenshot("browser-sheet")
@@ -170,9 +175,21 @@ class AppScreensTest {
         compose.runOnIdle { assertEquals(1, exported); assertEquals(1, toggled); assertEquals(1, external) }
     }
 
+    @Test fun browserShowsCurrentHostAndDisabledAdapterState() {
+        render(
+            initialSettings = AppSettings(theme = ThemeMode.LIGHT, dynamicColor = false, adapters = emptySet()),
+            browser = BrowserUiState(serviceId = "flow", url = "https://accounts.google.com/signin", extensionReady = true),
+        )
+        compose.onNodeWithText("accounts.google.com").assertIsDisplayed()
+        compose.onNodeWithContentDescription(text(R.string.page_information)).performClick()
+        compose.onNodeWithText(text(R.string.compatibility_disabled)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.browser_extension_ready)).assertDoesNotExist()
+    }
+
     @Test fun statusAndChecksShowOnlyFlowInBothThemes() {
         render(records = mapOf("flow" to ServiceRecord(CheckStatus.PAGE_OPENED)))
         compose.onNodeWithText(text(R.string.status_page_opened)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.status_generation_unchecked)).assertIsDisplayed()
         compose.saveScreenshot("flow-status-light")
         navigateTo(R.string.nav_checks)
         compose.saveScreenshot("flow-checks")
@@ -185,6 +202,7 @@ class AppScreensTest {
 
     @Test fun flowAvatarStaysSquareAndCenteredWithLargeText() {
         render(largeText = true)
+        compose.onNodeWithTag("flow-open").assertIsDisplayed()
         val avatar = compose.onNodeWithTag("service-avatar-flow", useUnmergedTree = true)
         avatar.performScrollTo().assertWidthIsEqualTo(52.dp).assertHeightIsEqualTo(52.dp)
         val outer = avatar.fetchSemanticsNode().boundsInRoot
@@ -222,11 +240,11 @@ class AppScreensTest {
         compose.mainClock.autoAdvance = false
         fun frames(stage: String, count: Int) { repeat(count) { frame -> compose.mainClock.advanceTimeBy(32); compose.saveScreenshot("motion-$stage-${frame.toString().padStart(2, '0')}") } }
         try {
-            val hero = compose.onNodeWithTag("flow-hero")
-            val resting = hero.fetchSemanticsNode().boundsInRoot.width
-            hero.performTouchInput { down(center) }; frames("press",12)
-            assertTrue(hero.fetchSemanticsNode().boundsInRoot.width < resting - 1f)
-            hero.performTouchInput { up() }; frames("release",12)
+            val button = compose.onNodeWithTag("flow-open")
+            val resting = button.fetchSemanticsNode().boundsInRoot.width
+            button.performTouchInput { down(center) }; frames("press",12)
+            assertTrue(button.fetchSemanticsNode().boundsInRoot.width < resting - 1f)
+            button.performTouchInput { up() }; frames("release",12)
             navigateTo(R.string.nav_settings); frames("navigation",16)
             compose.onNodeWithText(text(R.string.dynamic_colors)).performClick(); frames("switch",16)
         } finally { compose.mainClock.autoAdvance = true }
