@@ -107,7 +107,8 @@ class AppScreensTest {
         var cleared = 0
         render(onClearData = { cleared++ })
         navigateTo(R.string.nav_settings)
-        compose.onNodeWithText(text(R.string.clear_data_action)).performScrollTo().performClick()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(text(R.string.clear_data_action)))
+        compose.onNodeWithText(text(R.string.clear_data_action)).performClick()
         compose.onNodeWithText(text(R.string.clear_data_description)).assertIsDisplayed()
         compose.saveScreenshot("clear-dialog")
         compose.runOnIdle { assertEquals(0, cleared) }
